@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useCategoryStore } from "../../store/useCategoryStore";
+import { useAppTheme } from "../../lib/theme";
 
 const PRESET_COLORS = [
   "#38BDF8", "#F59E0B", "#3B82F6", "#34D399",
@@ -19,10 +20,12 @@ const PRESET_COLORS = [
 const PRESET_ICONS = ["💡", "📦", "🎬", "✅", "📝", "🎯", "🔖", "🌟", "🚀", "📌"];
 
 function SectionHeader({ title }: { title: string }) {
+  const { colors } = useAppTheme();
+
   return (
     <Text
       style={{
-        color: "#5F8BAE",
+        color: colors.textTertiary,
         fontSize: 11,
         fontWeight: "600",
         letterSpacing: 0.8,
@@ -37,6 +40,8 @@ function SectionHeader({ title }: { title: string }) {
 }
 
 export default function SettingsScreen() {
+  const theme = useAppTheme();
+  const { colors, isDark } = theme;
   const { categories, addCategory, deleteCategory } = useCategoryStore();
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
@@ -62,8 +67,8 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#060E1F" }} edges={["top"]}>
-      <StatusBar style="light" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+      <StatusBar style={isDark ? "light" : "dark"} />
 
       {/* Header */}
       <View
@@ -71,13 +76,13 @@ export default function SettingsScreen() {
           paddingHorizontal: 20,
           paddingVertical: 14,
           borderBottomWidth: 0.5,
-          borderBottomColor: "#1A3050",
+          borderBottomColor: colors.border,
         }}
       >
-        <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "800", letterSpacing: -0.8 }}>
+        <Text style={{ color: colors.text, fontSize: 22, fontWeight: "800", letterSpacing: -0.8 }}>
           설정
         </Text>
-        <Text style={{ color: "#5F8BAE", fontSize: 11, marginTop: 1 }}>
+        <Text style={{ color: colors.textTertiary, fontSize: 11, marginTop: 1 }}>
           카테고리 및 환경 설정
         </Text>
       </View>
@@ -94,7 +99,7 @@ export default function SettingsScreen() {
             style={{
               flexDirection: "row",
               alignItems: "center",
-              backgroundColor: "#122A45",
+              backgroundColor: colors.surface,
               borderRadius: 16,
               paddingHorizontal: 16,
               paddingVertical: 14,
@@ -116,33 +121,33 @@ export default function SettingsScreen() {
               <Text style={{ fontSize: 18 }}>{cat.icon}</Text>
             </View>
 
-            <Text style={{ flex: 1, color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>
+            <Text style={{ flex: 1, color: colors.text, fontSize: 14, fontWeight: "600" }}>
               {cat.name}
             </Text>
 
             {cat.isDefault ? (
               <View
                 style={{
-                  backgroundColor: "#1C3A5E",
+                  backgroundColor: colors.surfaceElevated,
                   borderRadius: 10,
                   paddingHorizontal: 10,
                   paddingVertical: 4,
                 }}
               >
-                <Text style={{ color: "#5F8BAE", fontSize: 11 }}>기본</Text>
+                <Text style={{ color: colors.textTertiary, fontSize: 11 }}>기본</Text>
               </View>
             ) : (
               <TouchableOpacity
                 onPress={() => handleDelete(cat.id, cat.name)}
                 accessibilityLabel={`${cat.name} 삭제`}
                 style={{
-                  backgroundColor: "#FF658420",
+                  backgroundColor: colors.dangerSoft,
                   borderRadius: 10,
                   paddingHorizontal: 12,
                   paddingVertical: 6,
                 }}
               >
-                <Text style={{ color: "#FF6584", fontSize: 12, fontWeight: "600" }}>삭제</Text>
+                <Text style={{ color: colors.danger, fontSize: 12, fontWeight: "600" }}>삭제</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -153,12 +158,12 @@ export default function SettingsScreen() {
           <View
             style={{
               marginTop: 8,
-              backgroundColor: "#122A45",
+              backgroundColor: colors.surface,
               borderRadius: 16,
               padding: 16,
             }}
           >
-            <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "700", marginBottom: 14 }}>
+            <Text style={{ color: colors.text, fontSize: 14, fontWeight: "700", marginBottom: 14 }}>
               새 카테고리
             </Text>
 
@@ -166,13 +171,13 @@ export default function SettingsScreen() {
               value={newName}
               onChangeText={setNewName}
               placeholder="카테고리 이름"
-              placeholderTextColor="#5F8BAE"
+              placeholderTextColor={colors.textTertiary}
               style={{
-                backgroundColor: "#0C1D34",
+                backgroundColor: colors.surfaceElevated,
                 borderRadius: 12,
                 paddingHorizontal: 14,
                 paddingVertical: 12,
-                color: "#FFFFFF",
+                color: colors.text,
                 fontSize: 14,
                 marginBottom: 14,
               }}
@@ -180,7 +185,7 @@ export default function SettingsScreen() {
               autoFocus
             />
 
-            <Text style={{ color: "#5F8BAE", fontSize: 11, fontWeight: "600", marginBottom: 8 }}>
+            <Text style={{ color: colors.textTertiary, fontSize: 11, fontWeight: "600", marginBottom: 8 }}>
               색상
             </Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
@@ -200,7 +205,7 @@ export default function SettingsScreen() {
               ))}
             </View>
 
-            <Text style={{ color: "#5F8BAE", fontSize: 11, fontWeight: "600", marginBottom: 8 }}>
+            <Text style={{ color: colors.textTertiary, fontSize: 11, fontWeight: "600", marginBottom: 8 }}>
               아이콘
             </Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 18 }}>
@@ -214,7 +219,7 @@ export default function SettingsScreen() {
                     alignItems: "center",
                     justifyContent: "center",
                     borderRadius: 12,
-                    backgroundColor: newIcon === ic ? "#38BDF830" : "#0C1D34",
+                    backgroundColor: newIcon === ic ? colors.primarySoft : colors.surfaceElevated,
                   }}
                 >
                   <Text style={{ fontSize: 20 }}>{ic}</Text>
@@ -229,11 +234,11 @@ export default function SettingsScreen() {
                   flex: 1,
                   alignItems: "center",
                   borderRadius: 12,
-                  backgroundColor: "#0C1D34",
+                  backgroundColor: colors.surfaceElevated,
                   paddingVertical: 12,
                 }}
               >
-                <Text style={{ color: "#5F8BAE", fontSize: 14, fontWeight: "600" }}>취소</Text>
+                <Text style={{ color: colors.textTertiary, fontSize: 14, fontWeight: "600" }}>취소</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleAdd}
@@ -242,7 +247,7 @@ export default function SettingsScreen() {
                   flex: 1,
                   alignItems: "center",
                   borderRadius: 12,
-                  backgroundColor: newName.trim() ? "#38BDF8" : "#0C1D34",
+                  backgroundColor: newName.trim() ? colors.primary : colors.surfaceElevated,
                   paddingVertical: 12,
                 }}
                 testID="add-category-confirm"
@@ -251,7 +256,7 @@ export default function SettingsScreen() {
                   style={{
                     fontSize: 14,
                     fontWeight: "600",
-                    color: newName.trim() ? "#060E1F" : "#5F8BAE",
+                    color: newName.trim() ? colors.surface : colors.textTertiary,
                   }}
                 >
                   추가
@@ -270,14 +275,14 @@ export default function SettingsScreen() {
               borderRadius: 16,
               borderWidth: 1,
               borderStyle: "dashed",
-              borderColor: "#1A3050",
+              borderColor: colors.border,
               paddingVertical: 16,
               gap: 6,
             }}
             testID="add-category-btn"
           >
-            <Ionicons name="add-circle-outline" size={16} color="#38BDF8" />
-            <Text style={{ color: "#38BDF8", fontSize: 14, fontWeight: "600" }}>
+            <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
+            <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "600" }}>
               카테고리 추가
             </Text>
           </TouchableOpacity>
@@ -285,24 +290,24 @@ export default function SettingsScreen() {
 
         {/* Auto grouping section */}
         <SectionHeader title="미분류 자동 묶음" />
-        <View style={{ backgroundColor: "#122A45", borderRadius: 16, padding: 16 }}>
+        <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 16 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <Text style={{ fontSize: 18 }}>🤖</Text>
-            <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600", flex: 1 }}>
+            <Text style={{ color: colors.text, fontSize: 14, fontWeight: "600", flex: 1 }}>
               AI 자동 분류
             </Text>
             <View
               style={{
-                backgroundColor: "#1C3A5E",
+                backgroundColor: colors.surfaceElevated,
                 borderRadius: 10,
                 paddingHorizontal: 10,
                 paddingVertical: 3,
               }}
             >
-              <Text style={{ color: "#5F8BAE", fontSize: 11 }}>30일마다</Text>
+              <Text style={{ color: colors.textTertiary, fontSize: 11 }}>30일마다</Text>
             </View>
           </View>
-          <Text style={{ color: "#5F8BAE", fontSize: 12, lineHeight: 18 }}>
+          <Text style={{ color: colors.textTertiary, fontSize: 12, lineHeight: 18 }}>
             미분류 아이디어가 10개 이상 쌓이면 AI가 유사한 아이디어를 묶어 카테고리를 제안해요.
           </Text>
         </View>

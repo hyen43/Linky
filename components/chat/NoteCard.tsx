@@ -1,6 +1,7 @@
 import React from "react";
 import { Text, View } from "react-native";
 import type { Note } from "../../types";
+import { useAppTheme } from "../../lib/theme";
 
 interface Props {
   note: Note;
@@ -14,17 +15,20 @@ function formatTime(date: Date): string {
   });
 }
 
-export const NoteCard: React.FC<Props> = ({ note }) => (
-  <View className="mb-4 max-w-[88%]">
-    <View
-      className="overflow-hidden rounded-2xl rounded-tl-sm bg-surface2"
-      style={{ borderLeftWidth: 2.5, borderLeftColor: "#38BDF8" }}
-    >
-      <View className="px-4 pt-4 pb-3" style={{ gap: 6 }}>
+export const NoteCard: React.FC<Props> = ({ note }) => {
+  const { colors } = useAppTheme();
+
+  return (
+    <View className="mb-4 max-w-[88%]">
+      <View
+        className="overflow-hidden rounded-2xl rounded-tl-sm"
+        style={{ backgroundColor: colors.surfaceElevated, borderLeftWidth: 2.5, borderLeftColor: colors.primary }}
+      >
+        <View className="px-4 pt-4 pb-3" style={{ gap: 6 }}>
         {/* Title */}
         <Text
-          className="text-[15px] font-semibold text-white"
-          style={{ letterSpacing: -0.3 }}
+          className="text-[15px] font-semibold"
+          style={{ color: colors.text, letterSpacing: -0.3 }}
           numberOfLines={2}
         >
           {note.title}
@@ -33,7 +37,8 @@ export const NoteCard: React.FC<Props> = ({ note }) => (
         {/* Content */}
         {note.rawContent.trim().length > 0 && (
           <Text
-            className="text-[14px] leading-[21px] text-textMuted"
+            className="text-[14px] leading-[21px]"
+            style={{ color: colors.textTertiary }}
             numberOfLines={4}
           >
             {note.rawContent}
@@ -47,9 +52,9 @@ export const NoteCard: React.FC<Props> = ({ note }) => (
               <View
                 key={tag}
                 className="rounded-full px-2.5 py-1"
-                style={{ backgroundColor: "#38BDF818", borderWidth: 1, borderColor: "#38BDF840" }}
+                style={{ backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.border }}
               >
-                <Text style={{ color: "#38BDF8", fontSize: 12, fontWeight: "500" }}>
+                <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "500" }}>
                   #{tag}
                 </Text>
               </View>
@@ -57,10 +62,11 @@ export const NoteCard: React.FC<Props> = ({ note }) => (
           </View>
         )}
       </View>
-    </View>
+      </View>
 
-    <Text className="mt-1 text-[10px] text-textMuted">
-      {formatTime(note.createdAt)}
-    </Text>
-  </View>
-);
+      <Text className="mt-1 text-[10px]" style={{ color: colors.textTertiary }}>
+        {formatTime(note.createdAt)}
+      </Text>
+    </View>
+  );
+};

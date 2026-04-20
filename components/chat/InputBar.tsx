@@ -1,6 +1,7 @@
 import React, { FC } from "react";
 import { Platform, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useAppTheme } from "../../lib/theme";
 
 interface Props {
   onOpen: () => void;
@@ -8,18 +9,21 @@ interface Props {
   isRecording: boolean;
 }
 
-export const InputBar: FC<Props> = ({ onOpen, onMicPress, isRecording }) => (
-  <View
-    style={{
-      backgroundColor: "#0C1D34",
-      borderTopWidth: 0.5,
-      borderTopColor: "#1A3050",
-      paddingBottom: Platform.OS === "ios" ? 20 : 12,
-      paddingTop: 10,
-      paddingHorizontal: 12,
-    }}
-  >
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+export const InputBar: FC<Props> = ({ onOpen, onMicPress, isRecording }) => {
+  const { colors } = useAppTheme();
+
+  return (
+    <View
+      style={{
+        backgroundColor: colors.surface,
+        borderTopWidth: 0.5,
+        borderTopColor: colors.border,
+        paddingBottom: Platform.OS === "ios" ? 20 : 12,
+        paddingTop: 10,
+        paddingHorizontal: 12,
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
       {/* Mic button */}
       <TouchableOpacity
         accessibilityRole="button"
@@ -31,13 +35,13 @@ export const InputBar: FC<Props> = ({ onOpen, onMicPress, isRecording }) => (
           borderRadius: 22,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: isRecording ? "#38BDF8" : "#122A45",
+          backgroundColor: isRecording ? colors.primary : colors.surfaceElevated,
         }}
       >
         <Ionicons
           name={isRecording ? "stop" : "mic-outline"}
           size={18}
-          color={isRecording ? "#060E1F" : "#5F8BAE"}
+          color={isRecording ? colors.surface : colors.textTertiary}
         />
       </TouchableOpacity>
 
@@ -51,15 +55,15 @@ export const InputBar: FC<Props> = ({ onOpen, onMicPress, isRecording }) => (
           flex: 1,
           flexDirection: "row",
           alignItems: "center",
-          backgroundColor: "#122A45",
+          backgroundColor: colors.surfaceElevated,
           borderRadius: 22,
           paddingHorizontal: 16,
           height: 44,
           borderWidth: 1,
-          borderColor: "#1A3050",
+          borderColor: colors.border,
         }}
       >
-        <Text style={{ flex: 1, fontSize: 15, color: "#5F8BAE" }}>
+        <Text style={{ flex: 1, fontSize: 15, color: colors.textTertiary }}>
           오늘 떠오른 아이디어...
         </Text>
         <View
@@ -67,14 +71,15 @@ export const InputBar: FC<Props> = ({ onOpen, onMicPress, isRecording }) => (
             width: 26,
             height: 26,
             borderRadius: 13,
-            backgroundColor: "#38BDF8",
+            backgroundColor: colors.primary,
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <Ionicons name="add" size={16} color="#060E1F" />
+          <Ionicons name="add" size={16} color={colors.surface} />
         </View>
       </TouchableOpacity>
     </View>
-  </View>
-);
+    </View>
+  );
+};

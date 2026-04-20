@@ -3,7 +3,6 @@ import {
   Keyboard,
   Platform,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -14,20 +13,7 @@ import BottomSheet, {
 } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import { useChatStore } from "../../store/useChatStore";
-
-// ── Design tokens (raw values — NativeWind can't reach inside BottomSheet) ──
-const COLORS = {
-  bg:        "#060E1F",
-  surface:   "#0C1D34",
-  surface2:  "#122A45",
-  surface3:  "#1C3A5E",
-  primary:   "#38BDF8",
-  secondary: "#7DD3FC",
-  accent:    "#34D399",
-  textMuted: "#5F8BAE",
-  border:    "#1A3050",
-  white:     "#FFFFFF",
-};
+import { useAppTheme } from "../../lib/theme";
 
 interface Props {
   onClose?: () => void;
@@ -37,6 +23,7 @@ export type IdeaFormSheetRef = BottomSheet;
 
 export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
   ({ onClose }, ref) => {
+    const { colors } = useAppTheme();
     const [title, setTitle]     = useState("");
     const [content, setContent] = useState("");
     const [tagInput, setTagInput] = useState("");
@@ -111,9 +98,9 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
         snapPoints={snapPoints}
         enablePanDownToClose
         backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: COLORS.surface }}
+        backgroundStyle={{ backgroundColor: colors.surface }}
         handleIndicatorStyle={{
-          backgroundColor: COLORS.border,
+          backgroundColor: colors.border,
           width: 36,
           height: 4,
         }}
@@ -138,12 +125,12 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
               paddingTop: 8,
               paddingBottom: 20,
               borderBottomWidth: 1,
-              borderBottomColor: COLORS.border,
+              borderBottomColor: colors.border,
             }}
           >
             <Text
               style={{
-                color: COLORS.white,
+                color: colors.text,
                 fontSize: 17,
                 fontWeight: "700",
                 letterSpacing: -0.4,
@@ -155,7 +142,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
               onPress={handleSave}
               disabled={!canSave}
               style={{
-                backgroundColor: canSave ? COLORS.primary : COLORS.surface3,
+                backgroundColor: canSave ? colors.primary : colors.surfaceElevated,
                 paddingHorizontal: 18,
                 paddingVertical: 8,
                 borderRadius: 20,
@@ -163,7 +150,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
             >
               <Text
                 style={{
-                  color: canSave ? COLORS.bg : COLORS.textMuted,
+                  color: canSave ? colors.surface : colors.textTertiary,
                   fontSize: 14,
                   fontWeight: "700",
                   letterSpacing: -0.2,
@@ -179,7 +166,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
             <View style={{ gap: 8 }}>
               <Text
                 style={{
-                  color: COLORS.textMuted,
+                  color: colors.textTertiary,
                   fontSize: 11,
                   fontWeight: "600",
                   letterSpacing: 0.8,
@@ -192,19 +179,19 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
                 value={title}
                 onChangeText={setTitle}
                 placeholder="아이디어 제목"
-                placeholderTextColor={COLORS.surface3}
+                placeholderTextColor={colors.textTertiary}
                 returnKeyType="next"
                 style={{
-                  backgroundColor: COLORS.surface2,
+                  backgroundColor: colors.surfaceElevated,
                   borderRadius: 14,
                   paddingHorizontal: 16,
                   paddingVertical: 14,
-                  color: COLORS.white,
+                  color: colors.text,
                   fontSize: 16,
                   fontWeight: "500",
                   letterSpacing: -0.3,
                   borderWidth: 1.5,
-                  borderColor: title ? COLORS.primary + "60" : COLORS.border,
+                  borderColor: title ? colors.primary : colors.border,
                 }}
               />
             </View>
@@ -213,7 +200,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
             <View style={{ gap: 8 }}>
               <Text
                 style={{
-                  color: COLORS.textMuted,
+                  color: colors.textTertiary,
                   fontSize: 11,
                   fontWeight: "600",
                   letterSpacing: 0.8,
@@ -226,20 +213,20 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
                 value={content}
                 onChangeText={setContent}
                 placeholder="아이디어를 자유롭게 적어보세요"
-                placeholderTextColor={COLORS.surface3}
+                placeholderTextColor={colors.textTertiary}
                 multiline
                 textAlignVertical="top"
                 style={{
-                  backgroundColor: COLORS.surface2,
+                  backgroundColor: colors.surfaceElevated,
                   borderRadius: 14,
                   paddingHorizontal: 16,
                   paddingVertical: 14,
-                  color: COLORS.white,
+                  color: colors.text,
                   fontSize: 15,
                   lineHeight: 24,
                   minHeight: 120,
                   borderWidth: 1.5,
-                  borderColor: content ? COLORS.primary + "60" : COLORS.border,
+                  borderColor: content ? colors.primary : colors.border,
                 }}
               />
             </View>
@@ -248,7 +235,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
             <View style={{ gap: 8 }}>
               <Text
                 style={{
-                  color: COLORS.textMuted,
+                  color: colors.textTertiary,
                   fontSize: 11,
                   fontWeight: "600",
                   letterSpacing: 0.8,
@@ -275,18 +262,18 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
                       style={{
                         flexDirection: "row",
                         alignItems: "center",
-                        backgroundColor: COLORS.primary + "18",
+                        backgroundColor: colors.primarySoft,
                         borderRadius: 20,
                         paddingHorizontal: 12,
                         paddingVertical: 6,
                         gap: 4,
                         borderWidth: 1,
-                        borderColor: COLORS.primary + "40",
+                        borderColor: colors.border,
                       }}
                     >
                       <Text
                         style={{
-                          color: COLORS.primary,
+                          color: colors.primary,
                           fontSize: 13,
                           fontWeight: "500",
                         }}
@@ -296,7 +283,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
                       <Ionicons
                         name="close"
                         size={12}
-                        color={COLORS.primary}
+                        color={colors.primary}
                       />
                     </TouchableOpacity>
                   ))}
@@ -307,12 +294,12 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
-                  backgroundColor: COLORS.surface2,
+                  backgroundColor: colors.surfaceElevated,
                   borderRadius: 14,
                   paddingHorizontal: 16,
                   paddingVertical: 4,
                   borderWidth: 1.5,
-                  borderColor: tagInput ? COLORS.primary + "60" : COLORS.border,
+                  borderColor: tagInput ? colors.primary : colors.border,
                   gap: 8,
                 }}
               >
@@ -321,12 +308,12 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
                   onChangeText={handleTagInputChange}
                   onSubmitEditing={handleTagInputSubmit}
                   placeholder="태그 입력 후 쉼표 또는 Enter"
-                  placeholderTextColor={COLORS.surface3}
+                  placeholderTextColor={colors.textTertiary}
                   returnKeyType="done"
                   blurOnSubmit={false}
                   style={{
                     flex: 1,
-                    color: COLORS.white,
+                    color: colors.text,
                     fontSize: 15,
                     paddingVertical: 12,
                   }}
@@ -334,12 +321,12 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
                 <Ionicons
                   name="pricetag-outline"
                   size={16}
-                  color={COLORS.textMuted}
+                  color={colors.textTertiary}
                 />
               </View>
               <Text
                 style={{
-                  color: COLORS.textMuted,
+                  color: colors.textTertiary,
                   fontSize: 11,
                   marginTop: 2,
                 }}
