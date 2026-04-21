@@ -1,54 +1,94 @@
-import {
-  AIProcessResult,
-  ContentType,
-  DerivedIdea,
-  TitleOption,
-} from "../types";
+import { AIProcessResult, ContentType, DerivedIdea, TitleOption } from "../types";
 
-/**
- 당신은 콘텐츠 크리에이터의 아이디어 1단계 적재를 도와주는 AI 비서입니다.
-사용자가 던진 거친 아이디어를 받아서,
-나중에 2단계(선별)에서 꺼내 쓸 수 있는 매력적인 아이디어들로 변환해주세요.
+// ─── OpenRouter 설정 ──────────────────────────────────────────────────────────
+//
+// TODO: 오픈라우터 결제 후 .env 파일에 아래 키를 추가하세요:
+//   EXPO_PUBLIC_OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxxxxx
+//
+// 모델 변경은 MODEL 상수만 바꾸면 됩니다. (https://openrouter.ai/models)
+// 추천: "anthropic/claude-sonnet-4-5" / "anthropic/claude-haiku-4-5" (저렴)
+//
+const OPENROUTER_API_KEY = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY ?? "";
+const MODEL = "anthropic/claude-sonnet-4-5"; // TODO: 원하는 모델로 교체
+
+// ─── 시스템 프롬프트 ──────────────────────────────────────────────────────────
+
+const SYSTEM_PROMPT = `당신은 콘텐츠 크리에이터의 아이디어 1단계 적재를 도와주는 AI 비서입니다.
+사용자가 던진 거친 아이디어를 받아서, 나중에 2단계(선별)에서 꺼내 쓸 수 있는 매력적인 아이디어들로 변환해주세요.
 
 다음 JSON만 반환하세요. 다른 텍스트나 마크다운 없이 JSON만 반환하세요:
 {
-  "originalSummary": "사용자가 던진 원본 아이디어 한 줄 요약 (20자 이내)",
-  "ideas": [
+  "suggestedCategoryName": "초안 | 보관함 | 제작중 | 완료 중 가장 적합한 것",
+  "contentType": "idea | script | reference | hook 중 하나",
+  "summary": "사용자 아이디어 한 줄 요약 (20자 이내)",
+  "tags": ["키워드1", "키워드2", "키워드3"],
+  "derivedIdeas": [
     {
-      "title": "구체화된 아이디어 제목",
-      "type": "유머형 또는 감성형 또는 공감형 또는 정보형 또는 도전형 중 하나",
-      "angle": "어떤 관점/각도로 접근하는지 한 줄",
-      "whyAttractive": "왜 이 아이디어가 매력적인지 구체적인 이유 한 줄",
-      "tags": ["키워드1", "키워드2"]
+      "context": "이 아이디어가 통하는 맥락/트렌드 한 줄",
+      "target": "정확한 타겟 독자/시청자",
+      "expectedTitle": "클릭 유도형 예상 제목"
     }
+  ],
+  "titleOptions": [
+    { "formula": "숫자+행동+결과", "title": "제목 예시" },
+    { "formula": "역발상",         "title": "제목 예시" },
+    { "formula": "타겟호명",       "title": "제목 예시" }
   ]
 }
 
-ideas 생성 규칙:
-- 사용자가 메모한 구체적인 디테일(장면, 소재, 반전 포인트 등)을
-  아이디어 안에 반드시 녹여야 합니다.
-  아이디어를 새로 만드는 게 아니라,
-  메모의 핵심 장면이 콘텐츠의 중심에 있어야 합니다.
-- 사용자가 생각하지 못한 각도까지 포함해서 다양하게 제안하세요.
-- 각 아이디어는 반드시 서로 다른 감정이나 독자층을 공략해야 합니다.
-  유머형 / 감성형 / 공감형 / 정보형 / 도전형 중 겹치지 않게 선택하세요.
-- title은 아직 발행용 제목이 아니라 내부 메모용으로,
-  방향이 명확하게 읽히면 충분합니다.
-- whyAttractive는 나중에 선별할 때 판단 근거가 되므로
-  구체적인 이유를 적어주세요.
-- 플랫폼이 입력된 경우 해당 플랫폼에 맞는 포맷과 길이를 고려해서
-  아이디어를 제안하세요.
-- 플랫폼이 미정이거나 입력이 없는 경우 플랫폼 무관하게 제안하세요.
-- 아이디어는 정확히 3개만 반환하세요.
- */
+규칙:
+- derivedIdeas는 정확히 3개. 각각 유머형/감성형/공감형/정보형/도전형 중 서로 다른 타입으로 구성
+- 메모의 핵심 장면/소재/반전 포인트를 아이디어 안에 반드시 녹일 것
+- tags는 최대 6개
+- 플랫폼 언급 있으면 해당 플랫폼 포맷 고려, 없으면 범용으로`;
+
+// ─── 공개 API ─────────────────────────────────────────────────────────────────
 
 export async function processIdea(text: string): Promise<AIProcessResult> {
-  // Mock: 실제 환경에서는 claude-sonnet-4-6 streaming API로 교체
-  await new Promise((r) => setTimeout(r, 1200));
-  return buildMockResult(text);
+  if (!OPENROUTER_API_KEY) {
+    // API 키 미설정 시 mock으로 동작 (개발/테스트용)
+    await new Promise((r) => setTimeout(r, 1200));
+    return buildMockResult(text);
+  }
+  return callOpenRouter(text);
 }
 
-// ─── Mock 생성 로직 ───────────────────────────────────────────────────────────
+// ─── OpenRouter 호출 ──────────────────────────────────────────────────────────
+
+async function callOpenRouter(text: string): Promise<AIProcessResult> {
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json",
+      // TODO: 배포 도메인으로 변경 (오픈라우터 대시보드 통계에 표시됨)
+      "HTTP-Referer": "https://linky.app",
+      "X-Title": "Linky",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: text },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`OpenRouter ${res.status}: ${err}`);
+  }
+
+  const data = await res.json();
+  const content: string = data.choices?.[0]?.message?.content ?? "";
+
+  if (!content) throw new Error("OpenRouter: 빈 응답");
+
+  return JSON.parse(content) as AIProcessResult;
+}
+
+// ─── Mock (API 키 없을 때 폴백) ───────────────────────────────────────────────
 
 function buildMockResult(text: string): AIProcessResult {
   const keywords = extractKeywords(text);
@@ -148,11 +188,7 @@ function pick3DistinctTypes(seedText: string): [IdeaType, IdeaType, IdeaType] {
   let hash = 0;
   for (let i = 0; i < seedText.length; i++) hash = (hash * 31 + seedText.charCodeAt(i)) >>> 0;
   const start = hash % all.length;
-  return [
-    all[start],
-    all[(start + 2) % all.length],
-    all[(start + 4) % all.length],
-  ];
+  return [all[start], all[(start + 2) % all.length], all[(start + 4) % all.length]];
 }
 
 function buildDerivedIdeasFromMemo({
@@ -217,17 +253,8 @@ function buildTitleOptionsFromMemo({
   const hook = details.twist ? `근데 ${details.twist}` : "결과가 의외였다";
 
   return [
-    {
-      formula: "숫자+행동+결과",
-      title: `${keyword} 7일 해보고 바뀐 것 3가지`,
-    },
-    {
-      formula: "역발상",
-      title: `${scene}에서 ${keyword}를 '반대로' 해봤더니…`,
-    },
-    {
-      formula: "타겟호명",
-      title: `${keyword} 하다가 ${hook} 경험 있는 사람?`,
-    },
+    { formula: "숫자+행동+결과", title: `${keyword} 7일 해보고 바뀐 것 3가지` },
+    { formula: "역발상",         title: `${scene}에서 ${keyword}를 '반대로' 해봤더니…` },
+    { formula: "타겟호명",       title: `${keyword} 하다가 ${hook} 경험 있는 사람?` },
   ];
 }
