@@ -1,11 +1,5 @@
 import React, { forwardRef, useCallback, useRef, useState } from "react";
-import {
-  Keyboard,
-  Platform,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Keyboard, Platform, Text, TouchableOpacity, View } from "react-native";
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
@@ -24,11 +18,11 @@ export type IdeaFormSheetRef = BottomSheet;
 export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
   ({ onClose }, ref) => {
     const { colors } = useAppTheme();
-    const [title, setTitle]     = useState("");
+    const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
     const [tagInput, setTagInput] = useState("");
-    const [tags, setTags]       = useState<string[]>([]);
-    const { saveNote }          = useChatStore();
+    const [tags, setTags] = useState<string[]>([]);
+    const { sendMessage } = useChatStore();
 
     const snapPoints = ["92%"];
 
@@ -61,11 +55,17 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
       const finalTags = [...tags];
       if (tagInput.trim()) finalTags.push(tagInput.trim());
 
-      saveNote({
-        title: title.trim() || content.trim().slice(0, 40),
-        content: content.trim(),
-        tags: finalTags,
-      });
+      const composed = [
+        title.trim() ? `제목: ${title.trim()}` : null,
+        content.trim() ? `메모: ${content.trim()}` : null,
+        finalTags.length > 0
+          ? `태그: ${finalTags.map((t) => `#${t}`).join(" ")}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      void sendMessage(composed);
 
       // reset
       setTitle("");
@@ -75,7 +75,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
       Keyboard.dismiss();
       (ref as React.RefObject<BottomSheet>)?.current?.close();
       onClose?.();
-    }, [title, content, tags, tagInput]);
+    }, [title, content, tags, tagInput, sendMessage, onClose, ref]);
 
     const renderBackdrop = useCallback(
       (props: any) => (
@@ -86,7 +86,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
           opacity={0.6}
         />
       ),
-      []
+      [],
     );
 
     const canSave = title.trim().length > 0 || content.trim().length > 0;
@@ -142,7 +142,9 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
               onPress={handleSave}
               disabled={!canSave}
               style={{
-                backgroundColor: canSave ? colors.primary : colors.surfaceElevated,
+                backgroundColor: canSave
+                  ? colors.primary
+                  : colors.surfaceElevated,
                 paddingHorizontal: 18,
                 paddingVertical: 8,
                 borderRadius: 20,
@@ -280,11 +282,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
                       >
                         #{tag}
                       </Text>
-                      <Ionicons
-                        name="close"
-                        size={12}
-                        color={colors.primary}
-                      />
+                      <Ionicons name="close" size={12} color={colors.primary} />
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -338,7 +336,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
         </BottomSheetScrollView>
       </BottomSheet>
     );
-  }
+  },
 );
 
 IdeaFormSheet.displayName = "IdeaFormSheet";

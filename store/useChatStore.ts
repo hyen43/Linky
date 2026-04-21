@@ -21,7 +21,12 @@ interface ChatState {
   isRecording: boolean;
 
   sendMessage: (text: string, categoryId?: string | null) => Promise<void>;
-  saveNote: (data: { title: string; content: string; tags: string[]; categoryId?: string | null }) => void;
+  saveNote: (data: {
+    title: string;
+    content: string;
+    tags: string[];
+    categoryId?: string | null;
+  }) => void;
   toggleRecording: () => void;
   updateNoteCategory: (noteId: string, categoryId: string | null) => void;
 }
@@ -73,7 +78,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     // 5. AI 응답 메시지
     const { categories: cats } = useCategoryStore.getState();
-    const catName = cats.find((c) => c.id === resolvedCategoryId)?.name ?? "미분류";
+    const catName =
+      cats.find((c) => c.id === resolvedCategoryId)?.name ?? "미분류";
     const aiMsg: ChatMessage = {
       id: msgId(),
       role: "ai",
@@ -113,7 +119,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   updateNoteCategory: (noteId, categoryId) =>
     set((s) => ({
       notes: s.notes.map((n) =>
-        n.id === noteId ? { ...n, categoryId, updatedAt: new Date() } : n
+        n.id === noteId ? { ...n, categoryId, updatedAt: new Date() } : n,
       ),
     })),
 }));
