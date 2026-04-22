@@ -43,6 +43,13 @@ export interface AIProcessResult {
   titleOptions: TitleOption[];   // 항상 3개
 }
 
+export interface DrillDownResult {
+  openingHook: string;      // 첫 3초 훅
+  outline: string[];        // 콘텐츠 구조 3~5단계
+  thumbnailConcept: string; // 썸네일 방향
+  cta: string;              // 마무리 CTA
+}
+
 // ─── Note ────────────────────────────────────────────────────────────────────
 
 export interface Note {

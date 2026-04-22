@@ -14,19 +14,24 @@ import { useCategoryStore } from "../../store/useCategoryStore";
 import { useChatStore } from "../../store/useChatStore";
 import type { Note } from "../../types";
 import { useAppTheme } from "../../lib/theme";
+import { NoteDetailSheet, NoteDetailSheetRef } from "../../components/sheet/NoteDetailSheet";
 
 function NoteCard({
   note,
   colors,
+  onPress,
 }: {
   note: Note;
   colors: ReturnType<typeof useAppTheme>["colors"];
+  onPress: () => void;
 }) {
   const { getCategoryById } = useCategoryStore();
   const category = getCategoryById(note.categoryId);
 
   return (
-    <View
+    <TouchableOpacity
+      activeOpacity={0.75}
+      onPress={onPress}
       className="mb-3 flex-row overflow-hidden rounded-2xl"
       style={{ backgroundColor: colors.surface }}
       testID={`note-card-${note.id}`}
@@ -73,22 +78,26 @@ function NoteCard({
           </View>
         )}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
 function SearchResultCard({
   note,
   colors,
+  onPress,
 }: {
   note: Note;
   colors: ReturnType<typeof useAppTheme>["colors"];
+  onPress: () => void;
 }) {
   const { getCategoryById } = useCategoryStore();
   const cat = getCategoryById(note.categoryId);
 
   return (
-    <View
+    <TouchableOpacity
+      activeOpacity={0.75}
+      onPress={onPress}
       style={{
         marginHorizontal: 16,
         marginBottom: 10,
@@ -159,7 +168,7 @@ function SearchResultCard({
           ))}
         </View>
       )}
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -174,6 +183,13 @@ export default function BoardScreen() {
   const [searchActive, setSearchActive] = useState(false);
   const [query, setQuery] = useState("");
   const searchInputRef = useRef<TextInput>(null);
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const detailSheetRef = useRef<NoteDetailSheetRef>(null);
+
+  const openDetail = (note: Note) => {
+    setSelectedNote(note);
+    detailSheetRef.current?.expand();
+  };
 
   const uncategorized = notes.filter((n) => n.categoryId === null);
 
@@ -499,9 +515,9 @@ export default function BoardScreen() {
             keyExtractor={(n) => n.id}
             renderItem={({ item }) =>
               searchActive ? (
-                <SearchResultCard note={item} colors={colors} />
+                <SearchResultCard note={item} colors={colors} onPress={() => openDetail(item)} />
               ) : (
-                <NoteCard note={item} colors={colors} />
+                <NoteCard note={item} colors={colors} onPress={() => openDetail(item)} />
               )
             }
             contentContainerStyle={
@@ -513,6 +529,12 @@ export default function BoardScreen() {
             testID="note-list"
           />
         ))}
+
+      <NoteDetailSheet
+        ref={detailSheetRef}
+        note={selectedNote}
+        onClose={() => setSelectedNote(null)}
+      />
     </SafeAreaView>
   );
 }

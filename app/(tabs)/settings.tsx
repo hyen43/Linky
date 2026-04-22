@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   Alert,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -10,7 +11,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useCategoryStore } from "../../store/useCategoryStore";
+import { useAuthStore } from "../../store/useAuthStore";
 import { useAppTheme } from "../../lib/theme";
 
 const PRESET_COLORS = [
@@ -43,6 +46,28 @@ export default function SettingsScreen() {
   const theme = useAppTheme();
   const { colors, isDark } = theme;
   const { categories, addCategory, deleteCategory } = useCategoryStore();
+  const { user, signOut } = useAuthStore();
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    if (Platform.OS === "web") {
+      if (!window.confirm("정말 로그아웃 할까요?")) return;
+      await signOut();
+      router.replace("/login" as never);
+    } else {
+      Alert.alert("로그아웃", "정말 로그아웃 할까요?", [
+        { text: "취소", style: "cancel" },
+        {
+          text: "로그아웃",
+          style: "destructive",
+          onPress: async () => {
+            await signOut();
+            router.replace("/login" as never);
+          },
+        },
+      ]);
+    }
+  };
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState(PRESET_COLORS[0]);
@@ -91,6 +116,57 @@ export default function SettingsScreen() {
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* 계정 섹션 */}
+        <SectionHeader title="계정" />
+        <View style={{ backgroundColor: colors.surface, borderRadius: 16, overflow: "hidden", marginBottom: 8 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              paddingHorizontal: 16,
+              paddingVertical: 14,
+              borderBottomWidth: 0.5,
+              borderBottomColor: colors.border,
+            }}
+          >
+            <View
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                backgroundColor: colors.primarySoft,
+                alignItems: "center",
+                justifyContent: "center",
+                marginRight: 12,
+              }}
+            >
+              <Ionicons name="person" size={18} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.text, fontSize: 14, fontWeight: "600" }}>
+                {user?.user_metadata?.full_name ?? "사용자"}
+              </Text>
+              <Text style={{ color: colors.textTertiary, fontSize: 12, marginTop: 1 }}>
+                {user?.email ?? ""}
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            onPress={handleSignOut}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              paddingHorizontal: 16,
+              paddingVertical: 14,
+              gap: 10,
+            }}
+          >
+            <Ionicons name="log-out-outline" size={20} color={colors.danger} />
+            <Text style={{ color: colors.danger, fontSize: 14, fontWeight: "600" }}>로그아웃</Text>
+          </TouchableOpacity>
+        </View>
+
         <SectionHeader title="카테고리" />
 
         {categories.map((cat) => (

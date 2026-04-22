@@ -1,16 +1,13 @@
 import React, { forwardRef, useCallback, useRef, useState } from "react";
-import {
-  Keyboard,
-  Platform,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Keyboard, Platform, Text, TextInput, TouchableOpacity, View } from "react-native";
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
-  BottomSheetTextInput,
+  BottomSheetTextInput as BSTextInput,
 } from "@gorhom/bottom-sheet";
+
+// 웹에서 BottomSheetTextInput은 네이티브 전용 API를 사용해 크래시 발생
+const SheetInput = Platform.OS === "web" ? TextInput : BSTextInput;
 import { Ionicons } from "@expo/vector-icons";
 import { useChatStore } from "../../store/useChatStore";
 import { useAppTheme } from "../../lib/theme";
@@ -24,11 +21,11 @@ export type IdeaFormSheetRef = BottomSheet;
 export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
   ({ onClose }, ref) => {
     const { colors } = useAppTheme();
-    const [title, setTitle]     = useState("");
+    const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
     const [tagInput, setTagInput] = useState("");
-    const [tags, setTags]       = useState<string[]>([]);
-    const { saveNote }          = useChatStore();
+    const [tags, setTags] = useState<string[]>([]);
+    const { sendMessage } = useChatStore();
 
     const snapPoints = ["92%"];
 
@@ -61,11 +58,17 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
       const finalTags = [...tags];
       if (tagInput.trim()) finalTags.push(tagInput.trim());
 
-      saveNote({
-        title: title.trim() || content.trim().slice(0, 40),
-        content: content.trim(),
-        tags: finalTags,
-      });
+      const composed = [
+        title.trim() ? `제목: ${title.trim()}` : null,
+        content.trim() ? `메모: ${content.trim()}` : null,
+        finalTags.length > 0
+          ? `태그: ${finalTags.map((t) => `#${t}`).join(" ")}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      void sendMessage(composed);
 
       // reset
       setTitle("");
@@ -75,7 +78,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
       Keyboard.dismiss();
       (ref as React.RefObject<BottomSheet>)?.current?.close();
       onClose?.();
-    }, [title, content, tags, tagInput]);
+    }, [title, content, tags, tagInput, sendMessage, onClose, ref]);
 
     const renderBackdrop = useCallback(
       (props: any) => (
@@ -86,7 +89,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
           opacity={0.6}
         />
       ),
-      []
+      [],
     );
 
     const canSave = title.trim().length > 0 || content.trim().length > 0;
@@ -142,7 +145,9 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
               onPress={handleSave}
               disabled={!canSave}
               style={{
-                backgroundColor: canSave ? colors.primary : colors.surfaceElevated,
+                backgroundColor: canSave
+                  ? colors.primary
+                  : colors.surfaceElevated,
                 paddingHorizontal: 18,
                 paddingVertical: 8,
                 borderRadius: 20,
@@ -175,7 +180,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
               >
                 타이틀
               </Text>
-              <BottomSheetTextInput
+              <SheetInput
                 value={title}
                 onChangeText={setTitle}
                 placeholder="아이디어 제목"
@@ -209,7 +214,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
               >
                 내용
               </Text>
-              <BottomSheetTextInput
+              <SheetInput
                 value={content}
                 onChangeText={setContent}
                 placeholder="아이디어를 자유롭게 적어보세요"
@@ -280,11 +285,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
                       >
                         #{tag}
                       </Text>
-                      <Ionicons
-                        name="close"
-                        size={12}
-                        color={colors.primary}
-                      />
+                      <Ionicons name="close" size={12} color={colors.primary} />
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -303,7 +304,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
                   gap: 8,
                 }}
               >
-                <BottomSheetTextInput
+                <SheetInput
                   value={tagInput}
                   onChangeText={handleTagInputChange}
                   onSubmitEditing={handleTagInputSubmit}
@@ -338,7 +339,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
         </BottomSheetScrollView>
       </BottomSheet>
     );
-  }
+  },
 );
 
 IdeaFormSheet.displayName = "IdeaFormSheet";

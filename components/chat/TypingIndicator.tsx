@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Animated, View } from "react-native";
+import { Animated, Platform, View } from "react-native";
 import { useAppTheme } from "../../lib/theme";
 
 export const TypingIndicator: React.FC = () => {
@@ -15,8 +15,8 @@ export const TypingIndicator: React.FC = () => {
       Animated.loop(
         Animated.sequence([
           Animated.delay(i * 140),
-          Animated.timing(dot, { toValue: -5, duration: 280, useNativeDriver: true }),
-          Animated.timing(dot, { toValue: 0, duration: 280, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: -5, duration: 280, useNativeDriver: Platform.OS !== "web" }),
+          Animated.timing(dot, { toValue: 0, duration: 280, useNativeDriver: Platform.OS !== "web" }),
           Animated.delay(560),
         ])
       )
