@@ -1,58 +1,69 @@
 import React from "react";
-import { Text, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import type { Note } from "../../types";
 import { useAppTheme } from "../../lib/theme";
 
 interface Props {
   note: Note;
+  folderName?: string;
+  onPress?: () => void;
 }
 
 function formatTime(date: Date): string {
   return date.toLocaleTimeString("ko-KR", {
     hour: "2-digit",
     minute: "2-digit",
-    hour12: false,
+    hour12: true,
   });
 }
 
-export const NoteCard: React.FC<Props> = ({ note }) => {
+export const NoteCard: React.FC<Props> = ({ note, folderName = "초안", onPress }) => {
   const { colors } = useAppTheme();
 
   return (
-    <View className="mb-4 max-w-[88%]">
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={onPress ? 0.7 : 1}
+      style={{ marginBottom: 16, marginLeft: 16, marginRight: 8 }}
+    >
       <View
-        className="overflow-hidden rounded-2xl rounded-tl-sm"
-        style={{ backgroundColor: colors.surfaceElevated, borderLeftWidth: 2.5, borderLeftColor: colors.primary }}
+        style={{
+          backgroundColor: colors.noteBg,
+          borderRadius: 16,
+          borderWidth: 0.5,
+          borderColor: colors.noteBorder,
+          overflow: "hidden",
+          padding: 16,
+          gap: 8,
+        }}
       >
-        <View className="px-4 pt-4 pb-3" style={{ gap: 6 }}>
-        {/* Title */}
         <Text
-          className="text-[15px] font-semibold"
-          style={{ color: colors.text, letterSpacing: -0.3 }}
+          style={{ fontSize: 16, fontWeight: "600", color: colors.text, letterSpacing: -0.3 }}
           numberOfLines={2}
         >
           {note.title}
         </Text>
 
-        {/* Content */}
         {note.rawContent.trim().length > 0 && (
           <Text
-            className="text-[14px] leading-[21px]"
-            style={{ color: colors.textTertiary }}
+            style={{ fontSize: 13, color: colors.textTertiary, lineHeight: 20 }}
             numberOfLines={4}
           >
             {note.rawContent}
           </Text>
         )}
 
-        {/* Tags */}
         {note.tags.length > 0 && (
-          <View className="mt-1 flex-row flex-wrap" style={{ gap: 6 }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
             {note.tags.map((tag) => (
               <View
                 key={tag}
-                className="rounded-full px-2.5 py-1"
-                style={{ backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.border }}
+                style={{
+                  backgroundColor: colors.primarySoft,
+                  borderRadius: 12,
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                }}
               >
                 <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "500" }}>
                   #{tag}
@@ -61,12 +72,15 @@ export const NoteCard: React.FC<Props> = ({ note }) => {
             ))}
           </View>
         )}
-      </View>
+
+        <Text style={{ fontSize: 11, color: colors.textTertiary }}>
+          📁 {folderName} 폴더에 저장됨
+        </Text>
       </View>
 
-      <Text className="mt-1 text-[10px]" style={{ color: colors.textTertiary }}>
+      <Text style={{ marginTop: 4, fontSize: 11, color: colors.textTertiary, alignSelf: "flex-end" }}>
         {formatTime(note.createdAt)}
       </Text>
-    </View>
+    </TouchableOpacity>
   );
 };

@@ -8,8 +8,9 @@ jest.mock("../../store/useCategoryStore");
 jest.mock("../../store/useChatStore");
 
 const mockCategories: Category[] = [
-  { id: "cat-1", userId: "u", name: "초안",   color: "#F59E0B", icon: "💡", isDefault: true, sortOrder: 0, createdAt: new Date() },
-  { id: "cat-2", userId: "u", name: "보관함", color: "#3B82F6", icon: "📦", isDefault: true, sortOrder: 1, createdAt: new Date() },
+  { id: "cat-1", userId: "u", name: "초안",   color: "#9CA3AF", icon: "📄", isDefault: true, sortOrder: 0, createdAt: new Date() },
+  { id: "cat-2", userId: "u", name: "제작중", color: "#F59E0B", icon: "✏️", isDefault: true, sortOrder: 1, createdAt: new Date() },
+  { id: "cat-3", userId: "u", name: "완료",   color: "#22C55E", icon: "✅", isDefault: true, sortOrder: 2, createdAt: new Date() },
 ];
 
 const mockNotes: Note[] = [
@@ -19,15 +20,9 @@ const mockNotes: Note[] = [
     categoryId: "cat-1", derivedIdeas: [], titleOptions: [],
     scheduledAt: null, createdAt: new Date(), updatedAt: new Date(),
   },
-  {
-    id: "n2", userId: "u", rawContent: "나중에 쓸 글감", summary: "글감",
-    contentType: "idea", tags: ["글쓰기"], title: "나중에 쓸 글감",
-    categoryId: "cat-2", derivedIdeas: [], titleOptions: [],
-    scheduledAt: null, createdAt: new Date(), updatedAt: new Date(),
-  },
 ];
 
-describe("BoardScreen", () => {
+describe("BoardScreen (탐색)", () => {
   beforeEach(() => {
     (useCategoryStore as unknown as jest.Mock).mockReturnValue({
       categories: mockCategories,
@@ -36,27 +31,38 @@ describe("BoardScreen", () => {
     (useChatStore as unknown as jest.Mock).mockReturnValue({ notes: mockNotes });
   });
 
-  it("헤더 렌더", () => {
+  it("탐색 헤더 렌더", () => {
     render(<BoardScreen />);
-    expect(screen.getByText("보드 📋")).toBeTruthy();
+    expect(screen.getByText("탐색")).toBeTruthy();
   });
 
-  it("카테고리 탭 렌더", () => {
+  it("기본 폴더 섹션 렌더", () => {
     render(<BoardScreen />);
-    expect(screen.getByTestId("category-tabs")).toBeTruthy();
-    expect(screen.getByTestId("category-tab-cat-1")).toBeTruthy();
-    expect(screen.getByTestId("category-tab-cat-2")).toBeTruthy();
+    expect(screen.getByText("기본 폴더")).toBeTruthy();
+    expect(screen.getByText("초안")).toBeTruthy();
+    expect(screen.getByText("제작중")).toBeTruthy();
+    expect(screen.getByText("완료")).toBeTruthy();
   });
 
-  it("카테고리 탭 선택 시 해당 노트 표시", () => {
+  it("검색 입력창 렌더", () => {
     render(<BoardScreen />);
-    fireEvent.press(screen.getByTestId("category-tab-cat-1"));
-    expect(screen.getByTestId("note-card-n1")).toBeTruthy();
+    expect(screen.getByTestId("search-input")).toBeTruthy();
   });
 
-  it("노트 없는 카테고리 - 빈 상태 메시지", () => {
-    (useChatStore as unknown as jest.Mock).mockReturnValue({ notes: [] });
+  it("최근 메모 섹션에 노트 렌더", () => {
     render(<BoardScreen />);
-    expect(screen.getByText(/아이디어가 없어요/)).toBeTruthy();
+    expect(screen.getByText("최근 메모")).toBeTruthy();
+    expect(screen.getAllByText("브이로그 아이디어").length).toBeGreaterThan(0);
+  });
+
+  it("검색어 입력 시 필터링", () => {
+    render(<BoardScreen />);
+    fireEvent.changeText(screen.getByTestId("search-input"), "없는키워드xyz");
+    expect(screen.queryByText("브이로그 아이디어")).toBeNull();
+  });
+
+  it("새 폴더 추가 버튼 렌더", () => {
+    render(<BoardScreen />);
+    expect(screen.getByTestId("add-folder-btn")).toBeTruthy();
   });
 });

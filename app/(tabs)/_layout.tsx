@@ -5,8 +5,7 @@ import { useAppTheme } from "../../lib/theme";
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 
 export default function TabsLayout() {
-  const theme = useAppTheme();
-  const { colors } = theme;
+  const { colors } = useAppTheme();
 
   return (
     <Tabs
@@ -18,6 +17,8 @@ export default function TabsLayout() {
           borderTopWidth: 0.5,
           elevation: 0,
           shadowOpacity: 0,
+          height: 83,
+          paddingBottom: 20,
         },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textTertiary,
@@ -27,10 +28,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "캡처",
+          title: "노트",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={(focused ? "create" : "create-outline") as IoniconName}
+              name={(focused ? "chatbubble" : "chatbubble-outline") as IoniconName}
               size={22}
               color={color}
             />
@@ -40,33 +41,30 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="board"
         options={{
-          title: "보드",
+          title: "탐색",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={(focused ? "grid" : "grid-outline") as IoniconName}
+              name={(focused ? "folder" : "folder-outline") as IoniconName}
               size={22}
               color={color}
             />
           ),
         }}
-      />
-      <Tabs.Screen
-        name="search"
-        options={{ href: null }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: "설정",
+          title: "마이",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={(focused ? "settings" : "settings-outline") as IoniconName}
+              name={(focused ? "person" : "person-outline") as IoniconName}
               size={22}
               color={color}
             />
           ),
         }}
       />
+      <Tabs.Screen name="search" options={{ href: null }} />
     </Tabs>
   );
 }

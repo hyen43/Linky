@@ -11,7 +11,7 @@ function formatTime(date: Date): string {
   return date.toLocaleTimeString("ko-KR", {
     hour: "2-digit",
     minute: "2-digit",
-    hour12: false,
+    hour12: true,
   });
 }
 
@@ -21,25 +21,33 @@ export const ChatBubble: React.FC<Props> = ({ message }) => {
 
   return (
     <View
-      className={`mb-3 flex-row items-end ${isUser ? "justify-end" : "justify-start"}`}
+      style={{
+        marginBottom: 12,
+        flexDirection: "row",
+        alignItems: "flex-end",
+        justifyContent: isUser ? "flex-end" : "flex-start",
+      }}
     >
-      <View className={`max-w-[78%] ${isUser ? "items-end" : "items-start"}`}>
+      <View style={{ maxWidth: "78%", alignItems: isUser ? "flex-end" : "flex-start" }}>
         <View
-          className="rounded-2xl px-4 py-3"
           style={{
-            borderTopRightRadius: isUser ? 6 : 16,
-            borderTopLeftRadius: isUser ? 16 : 6,
+            borderRadius: 18,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
             backgroundColor: isUser ? colors.primary : colors.surfaceElevated,
           }}
         >
           <Text
-            className="text-[15px] leading-[22px]"
-            style={{ letterSpacing: -0.1, color: isUser ? colors.surface : colors.text }}
+            style={{
+              fontSize: 14,
+              lineHeight: 20,
+              color: isUser ? "#FFFFFF" : colors.textSecondary,
+            }}
           >
             {message.content}
           </Text>
         </View>
-        <Text className="mt-1 text-[10px]" style={{ color: colors.textTertiary }}>
+        <Text style={{ marginTop: 4, fontSize: 11, color: colors.textTertiary }}>
           {formatTime(message.createdAt)}
         </Text>
       </View>

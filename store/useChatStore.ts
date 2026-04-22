@@ -9,7 +9,7 @@ const msgId = () => `msg-${++_msgId}-${Date.now()}`;
 const WELCOME: ChatMessage = {
   id: "welcome",
   role: "ai",
-  content: "안녕하세요! 링키예요 👋\n아이디어가 떠올랐나요? 편하게 말해주세요.",
+  content: "안녕하세요! 새로운 아이디어가 있나요? 제목과 내용을 적어주세요 ✍️",
   createdAt: new Date(0),
 };
 
@@ -21,6 +21,9 @@ interface ChatState {
   isRecording: boolean;
 
   sendMessage: (text: string, categoryId?: string | null) => Promise<void>;
+  confirmNote: (noteId: string) => void;
+  discardNote: (noteId: string) => void;
+  updateNoteTitle: (noteId: string, title: string) => void;
   saveNote: (data: { title: string; content: string; tags: string[]; categoryId?: string | null }) => void;
   toggleRecording: () => void;
   updateNoteCategory: (noteId: string, categoryId: string | null) => void;
@@ -34,7 +37,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isRecording: false,
 
   sendMessage: async (text, categoryId = null) => {
-    // 1. 사용자 메시지 즉시 표시
     const userMsg: ChatMessage = {
       id: msgId(),
       role: "user",
@@ -43,10 +45,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     };
     set((s) => ({ messages: [...s.messages, userMsg], isTyping: true }));
 
-    // 2. AI 처리
     const result = await processIdea(text);
 
-    // 3. 카테고리 결정: 사용자가 직접 선택 > AI 추천 > 첫 번째 default
     const { categories } = useCategoryStore.getState();
     const resolvedCategoryId =
       categoryId ??
@@ -54,9 +54,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
       categories[0]?.id ??
       null;
 
-    // 4. Note 저장
+    const now = Date.now();
+    const aiMsg: ChatMessage = {
+      id: msgId(),
+      role: "ai",
+      content: "⭐ AI가 정리했어요! 이렇게 저장할까요?",
+      createdAt: new Date(now + 1),
+    };
+
     const note: Note = {
-      id: `note-${Date.now()}`,
+      id: `note-${now}`,
       userId: "local",
       rawContent: text,
       summary: result.summary,
@@ -67,18 +74,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       derivedIdeas: result.derivedIdeas,
       titleOptions: result.titleOptions,
       scheduledAt: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    // 5. AI 응답 메시지
-    const { categories: cats } = useCategoryStore.getState();
-    const catName = cats.find((c) => c.id === resolvedCategoryId)?.name ?? "미분류";
-    const aiMsg: ChatMessage = {
-      id: msgId(),
-      role: "ai",
-      content: `저장했어요! [${catName}] 카테고리에 넣었고, 파생 아이디어 3개 만들어봤어요 👇`,
-      createdAt: new Date(Date.now() + 1),
+      confirmed: false,
+      createdAt: new Date(now + 2),
+      updatedAt: new Date(now + 2),
     };
 
     set((s) => ({
@@ -88,6 +86,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
       pendingNoteId: note.id,
     }));
   },
+
+  confirmNote: (noteId) =>
+    set((s) => ({
+      notes: s.notes.map((n) =>
+        n.id === noteId ? { ...n, confirmed: true, updatedAt: new Date() } : n
+      ),
+      pendingNoteId: s.pendingNoteId === noteId ? null : s.pendingNoteId,
+    })),
+
+  discardNote: (noteId) =>
+    set((s) => ({
+      notes: s.notes.filter((n) => n.id !== noteId),
+      pendingNoteId: s.pendingNoteId === noteId ? null : s.pendingNoteId,
+    })),
+
+  updateNoteTitle: (noteId, title) =>
+    set((s) => ({
+      notes: s.notes.map((n) =>
+        n.id === noteId ? { ...n, title, updatedAt: new Date() } : n
+      ),
+    })),
 
   saveNote: ({ title, content, tags, categoryId = null }) => {
     const note: Note = {
@@ -102,6 +121,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       derivedIdeas: [],
       titleOptions: [],
       scheduledAt: null,
+      confirmed: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

@@ -20,8 +20,13 @@ describe("ChatBubble", () => {
     expect(screen.getByText("테스트 메시지")).toBeTruthy();
   });
 
-  it("사용자 메시지: bg-primary 클래스 적용", () => {
+  it("사용자 메시지: 파란 버블 색상 적용", () => {
     const { toJSON } = render(<ChatBubble message={{ ...baseMsg, role: "user" }} />);
-    expect(JSON.stringify(toJSON())).toContain("bg-primary");
+    expect(JSON.stringify(toJSON())).toContain("1A6DFF");
+  });
+
+  it("AI 메시지: 회색 버블 색상 적용", () => {
+    const { toJSON } = render(<ChatBubble message={{ ...baseMsg, role: "ai" }} />);
+    expect(JSON.stringify(toJSON())).toContain("F2F3F5");
   });
 });

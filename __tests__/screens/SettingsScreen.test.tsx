@@ -1,63 +1,63 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { render, screen } from "@testing-library/react-native";
 import SettingsScreen from "../../app/(tabs)/settings";
 import { useCategoryStore } from "../../store/useCategoryStore";
-import type { Category } from "../../types";
+import { useChatStore } from "../../store/useChatStore";
+import type { Category, Note } from "../../types";
 
 jest.mock("../../store/useCategoryStore");
+jest.mock("../../store/useChatStore");
+jest.mock("expo-linear-gradient", () => ({
+  LinearGradient: ({ children }: { children: React.ReactNode }) => children,
+}));
 
 const mockCategories: Category[] = [
-  { id: "c1", userId: "u", name: "초안",   color: "#F59E0B", icon: "💡", isDefault: true,  sortOrder: 0, createdAt: new Date() },
-  { id: "c2", userId: "u", name: "내 폴더", color: "#6C63FF", icon: "📝", isDefault: false, sortOrder: 1, createdAt: new Date() },
+  { id: "c1", userId: "u", name: "초안",   color: "#9CA3AF", icon: "📄", isDefault: true,  sortOrder: 0, createdAt: new Date() },
+  { id: "c2", userId: "u", name: "제작중", color: "#F59E0B", icon: "✏️", isDefault: true,  sortOrder: 1, createdAt: new Date() },
+  { id: "c3", userId: "u", name: "완료",   color: "#22C55E", icon: "✅", isDefault: true,  sortOrder: 2, createdAt: new Date() },
 ];
 
-const mockAddCategory = jest.fn();
-const mockDeleteCategory = jest.fn();
+const mockNotes: Note[] = [
+  {
+    id: "n1", userId: "u", rawContent: "아이디어", summary: "요약",
+    contentType: "idea", tags: [], title: "아이디어",
+    categoryId: "c1", derivedIdeas: [], titleOptions: [],
+    scheduledAt: null, createdAt: new Date(), updatedAt: new Date(),
+  },
+];
 
-describe("SettingsScreen", () => {
+describe("MyPage (마이페이지)", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
     (useCategoryStore as unknown as jest.Mock).mockReturnValue({
       categories: mockCategories,
-      addCategory: mockAddCategory,
-      updateCategory: jest.fn(),
-      deleteCategory: mockDeleteCategory,
     });
+    (useChatStore as unknown as jest.Mock).mockReturnValue({ notes: mockNotes });
   });
 
-  it("헤더 렌더", () => {
+  it("마이페이지 헤더 렌더", () => {
     render(<SettingsScreen />);
-    expect(screen.getByText("설정 ⚙️")).toBeTruthy();
+    expect(screen.getByText("마이페이지")).toBeTruthy();
   });
 
-  it("카테고리 목록 렌더", () => {
+  it("프로필 카드 렌더", () => {
     render(<SettingsScreen />);
-    expect(screen.getByTestId("settings-cat-c1")).toBeTruthy();
-    expect(screen.getByTestId("settings-cat-c2")).toBeTruthy();
+    expect(screen.getByText("크리에이터 김")).toBeTruthy();
   });
 
-  it("기본 카테고리에 삭제 버튼 없음", () => {
+  it("통계 카드 렌더 (초안/제작중/완료)", () => {
     render(<SettingsScreen />);
-    expect(screen.queryByLabelText("초안 삭제")).toBeNull();
+    expect(screen.getByText("초안")).toBeTruthy();
+    expect(screen.getByText("제작중")).toBeTruthy();
+    expect(screen.getByText("완료")).toBeTruthy();
   });
 
-  it("커스텀 카테고리에 삭제 버튼 있음", () => {
+  it("설정 목록 렌더", () => {
     render(<SettingsScreen />);
-    expect(screen.getByLabelText("내 폴더 삭제")).toBeTruthy();
+    expect(screen.getByText("알림 설정")).toBeTruthy();
+    expect(screen.getByText("채찍질 강도")).toBeTruthy();
   });
 
-  it("카테고리 추가 버튼 → 입력 폼 표시", () => {
+  it("7일 리포트 카드 렌더", () => {
     render(<SettingsScreen />);
-    fireEvent.press(screen.getByTestId("add-category-btn"));
-    expect(screen.getByTestId("new-category-input")).toBeTruthy();
-  });
-
-  it("이름 입력 후 추가 버튼 → addCategory 호출", () => {
-    render(<SettingsScreen />);
-    fireEvent.press(screen.getByTestId("add-category-btn"));
-    fireEvent.changeText(screen.getByTestId("new-category-input"), "새 카테고리");
-    fireEvent.press(screen.getByTestId("add-category-confirm"));
-    expect(mockAddCategory).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "새 카테고리" })
-    );
+    expect(screen.getByText("⭐ 7일간 진행률 리포트")).toBeTruthy();
   });
 });

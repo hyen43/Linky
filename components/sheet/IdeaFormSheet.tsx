@@ -1,4 +1,4 @@
-import React, { forwardRef, useCallback, useRef, useState } from "react";
+import React, { forwardRef, useCallback, useEffect, useRef, useState } from "react";
 import {
   Keyboard,
   Platform,
@@ -15,20 +15,42 @@ import { Ionicons } from "@expo/vector-icons";
 import { useChatStore } from "../../store/useChatStore";
 import { useAppTheme } from "../../lib/theme";
 
+interface EditingNote {
+  id: string;
+  title: string;
+  content: string;
+  tags: string[];
+}
+
 interface Props {
   onClose?: () => void;
+  editingNote?: EditingNote | null;
 }
 
 export type IdeaFormSheetRef = BottomSheet;
 
 export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
-  ({ onClose }, ref) => {
+  ({ onClose, editingNote }, ref) => {
     const { colors } = useAppTheme();
     const [title, setTitle]     = useState("");
     const [content, setContent] = useState("");
     const [tagInput, setTagInput] = useState("");
     const [tags, setTags]       = useState<string[]>([]);
     const { saveNote }          = useChatStore();
+
+    useEffect(() => {
+      if (editingNote) {
+        setTitle(editingNote.title);
+        setContent(editingNote.content);
+        setTags(editingNote.tags);
+        setTagInput("");
+      } else {
+        setTitle("");
+        setContent("");
+        setTags([]);
+        setTagInput("");
+      }
+    }, [editingNote?.id]);
 
     const snapPoints = ["92%"];
 
@@ -124,25 +146,25 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
               paddingHorizontal: 24,
               paddingTop: 8,
               paddingBottom: 20,
-              borderBottomWidth: 1,
-              borderBottomColor: colors.border,
+              borderBottomWidth: 0.5,
+              borderBottomColor: "#E5E5E5",
             }}
           >
             <Text
               style={{
-                color: colors.text,
+                color: "#111111",
                 fontSize: 17,
                 fontWeight: "700",
                 letterSpacing: -0.4,
               }}
             >
-              새 아이디어
+              📝 노트 작성
             </Text>
             <TouchableOpacity
               onPress={handleSave}
               disabled={!canSave}
               style={{
-                backgroundColor: canSave ? colors.primary : colors.surfaceElevated,
+                backgroundColor: canSave ? "#1A6DFF" : "#F2F3F5",
                 paddingHorizontal: 18,
                 paddingVertical: 8,
                 borderRadius: 20,
@@ -150,13 +172,13 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
             >
               <Text
                 style={{
-                  color: canSave ? colors.surface : colors.textTertiary,
+                  color: canSave ? "#FFFFFF" : "#999999",
                   fontSize: 14,
                   fontWeight: "700",
                   letterSpacing: -0.2,
                 }}
               >
-                저장
+                저장하기
               </Text>
             </TouchableOpacity>
           </View>
@@ -179,19 +201,19 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
                 value={title}
                 onChangeText={setTitle}
                 placeholder="아이디어 제목"
-                placeholderTextColor={colors.textTertiary}
+                placeholderTextColor="#BBBBBB"
                 returnKeyType="next"
                 style={{
-                  backgroundColor: colors.surfaceElevated,
-                  borderRadius: 14,
+                  backgroundColor: "#F7F7F8",
+                  borderRadius: 12,
                   paddingHorizontal: 16,
                   paddingVertical: 14,
-                  color: colors.text,
+                  color: "#111111",
                   fontSize: 16,
                   fontWeight: "500",
                   letterSpacing: -0.3,
-                  borderWidth: 1.5,
-                  borderColor: title ? colors.primary : colors.border,
+                  borderWidth: 1,
+                  borderColor: title ? "#1A6DFF" : "#E5E5E5",
                 }}
               />
             </View>
@@ -212,21 +234,21 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
               <BottomSheetTextInput
                 value={content}
                 onChangeText={setContent}
-                placeholder="아이디어를 자유롭게 적어보세요"
-                placeholderTextColor={colors.textTertiary}
+                placeholder="본문 (맥락을 자유롭게 적어보세요)"
+                placeholderTextColor="#BBBBBB"
                 multiline
                 textAlignVertical="top"
                 style={{
-                  backgroundColor: colors.surfaceElevated,
-                  borderRadius: 14,
+                  backgroundColor: "#F7F7F8",
+                  borderRadius: 12,
                   paddingHorizontal: 16,
                   paddingVertical: 14,
-                  color: colors.text,
+                  color: "#111111",
                   fontSize: 15,
                   lineHeight: 24,
-                  minHeight: 120,
-                  borderWidth: 1.5,
-                  borderColor: content ? colors.primary : colors.border,
+                  minHeight: 100,
+                  borderWidth: 1,
+                  borderColor: content ? "#1A6DFF" : "#E5E5E5",
                 }}
               />
             </View>

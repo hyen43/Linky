@@ -15,7 +15,7 @@ type ListItem =
   | { kind: "note"; data: Note };
 
 export default function App() {
-  const { messages, notes, isTyping, isRecording, toggleRecording } = useChatStore();
+  const { messages, notes, isTyping } = useChatStore();
   const listRef = useRef<FlatList>(null);
   const sheetRef = useRef<IdeaFormSheetRef>(null);
 
@@ -67,8 +67,6 @@ export default function App() {
         {/* Input bar */}
         <InputBar
           onOpen={openSheet}
-          onMicPress={toggleRecording}
-          isRecording={isRecording}
         />
 
         {/* Bottom sheet */}

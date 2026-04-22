@@ -12,6 +12,8 @@ type Theme = {
     textTertiary: string;
     primary: string;
     primarySoft: string;
+    noteBg: string;
+    noteBorder: string;
     danger: string;
     dangerSoft: string;
   };
@@ -20,15 +22,17 @@ type Theme = {
 const lightTheme: Theme = {
   isDark: false,
   colors: {
-    background: "#F8FAFD",
+    background: "#FFFFFF",
     surface: "#FFFFFF",
-    surfaceElevated: "#F1F6FF",
-    border: "#DDE7F5",
-    text: "#0F172A",
-    textSecondary: "#334155",
-    textTertiary: "#64748B",
-    primary: "#1D4ED8",
-    primarySoft: "#DBEAFE",
+    surfaceElevated: "#F2F3F5",
+    border: "#E5E5E5",
+    text: "#111111",
+    textSecondary: "#555555",
+    textTertiary: "#999999",
+    primary: "#1A6DFF",
+    primarySoft: "#E8F0FE",
+    noteBg: "#F0F6FF",
+    noteBorder: "#D0E2FF",
     danger: "#DC2626",
     dangerSoft: "#FEE2E2",
   },
@@ -46,6 +50,8 @@ const darkTheme: Theme = {
     textTertiary: "#8AA4C1",
     primary: "#60A5FA",
     primarySoft: "#1E3A5B",
+    noteBg: "#0D2240",
+    noteBorder: "#1E3A5B",
     danger: "#FB7185",
     dangerSoft: "#4A2231",
   },

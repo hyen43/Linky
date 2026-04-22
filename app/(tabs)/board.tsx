@@ -1,6 +1,5 @@
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import {
-  FlatList,
   ScrollView,
   Text,
   TextInput,
@@ -9,510 +8,284 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { Ionicons } from "@expo/vector-icons";
 import { useCategoryStore } from "../../store/useCategoryStore";
 import { useChatStore } from "../../store/useChatStore";
-import type { Note } from "../../types";
 import { useAppTheme } from "../../lib/theme";
+import type { Note } from "../../types";
 
-function NoteCard({
-  note,
-  colors,
+const FOLDER_BG: Record<string, string> = {
+  초안: "#F0F0F5",
+  제작중: "#FFF3E0",
+  완료: "#E8F5E9",
+};
+
+function FolderRow({
+  icon,
+  name,
+  count,
+  iconBg,
+  onPress,
 }: {
-  note: Note;
-  colors: ReturnType<typeof useAppTheme>["colors"];
+  icon: string;
+  name: string;
+  count: number;
+  iconBg: string;
+  onPress?: () => void;
 }) {
-  const { getCategoryById } = useCategoryStore();
-  const category = getCategoryById(note.categoryId);
+  const { colors } = useAppTheme();
 
   return (
-    <View
-      className="mb-3 flex-row overflow-hidden rounded-2xl"
-      style={{ backgroundColor: colors.surface }}
-      testID={`note-card-${note.id}`}
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.7}
+      style={{ flexDirection: "row", alignItems: "center", paddingVertical: 12 }}
     >
       <View
-        className="w-[3px]"
-        style={{ backgroundColor: category?.color ?? "#38BDF8" }}
-      />
-      <View className="flex-1 p-4">
-        <View className="mb-2 flex-row items-start justify-between">
-          <Text
-            className="flex-1 pr-3 text-[15px] font-semibold leading-[22px]"
-            style={{ color: colors.text, letterSpacing: -0.2 }}
-            numberOfLines={2}
-          >
-            {note.title}
-          </Text>
-          <Text
-            className="mt-0.5 text-xs"
-            style={{ color: colors.textTertiary }}
-          >
-            {note.createdAt.toLocaleDateString("ko-KR", {
-              month: "short",
-              day: "numeric",
-            })}
-          </Text>
-        </View>
-        {note.tags.length > 0 && (
-          <View className="flex-row flex-wrap" style={{ gap: 5 }}>
-            {note.tags.map((tag) => (
-              <View
-                key={tag}
-                className="rounded-full px-2.5 py-0.5"
-                style={{ backgroundColor: colors.primarySoft }}
-              >
-                <Text
-                  className="text-xs font-medium"
-                  style={{ color: colors.primary }}
-                >
-                  #{tag}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          backgroundColor: iconBg,
+          alignItems: "center",
+          justifyContent: "center",
+          marginRight: 12,
+        }}
+      >
+        <Text style={{ fontSize: 18 }}>{icon}</Text>
       </View>
-    </View>
+      <Text style={{ flex: 1, fontSize: 16, fontWeight: "600", color: colors.text }}>
+        {name}
+      </Text>
+      <Text style={{ fontSize: 14, color: colors.textTertiary, fontWeight: "500" }}>{count}</Text>
+    </TouchableOpacity>
   );
 }
 
-function SearchResultCard({
-  note,
-  colors,
-}: {
-  note: Note;
-  colors: ReturnType<typeof useAppTheme>["colors"];
-}) {
-  const { getCategoryById } = useCategoryStore();
-  const cat = getCategoryById(note.categoryId);
+function NoteCardSmall({ note }: { note: Note }) {
+  const { colors } = useAppTheme();
+
+  const formattedDate = note.createdAt.toLocaleDateString("ko-KR", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
 
   return (
     <View
       style={{
-        marginHorizontal: 16,
-        marginBottom: 10,
-        borderRadius: 14,
         backgroundColor: colors.surface,
-        padding: 14,
+        borderRadius: 14,
         borderWidth: 0.5,
         borderColor: colors.border,
+        padding: 16,
+        marginBottom: 10,
       }}
-      testID={`search-result-${note.id}`}
     >
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          marginBottom: 6,
-        }}
+      <Text
+        style={{ fontSize: 15, fontWeight: "600", color: colors.text, marginBottom: 6 }}
+        numberOfLines={1}
       >
+        {note.title}
+      </Text>
+      {note.rawContent.trim().length > 0 && (
         <Text
-          style={{
-            flex: 1,
-            paddingRight: 10,
-            fontSize: 14,
-            fontWeight: "600",
-            color: colors.text,
-            letterSpacing: -0.2,
-            lineHeight: 20,
-          }}
+          style={{ fontSize: 13, color: colors.textTertiary, lineHeight: 20, marginBottom: 8 }}
           numberOfLines={2}
         >
-          {note.title}
+          {note.rawContent}
         </Text>
-        {cat && (
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 4,
-              backgroundColor: colors.surfaceElevated,
-              borderRadius: 10,
-              paddingHorizontal: 7,
-              paddingVertical: 3,
-            }}
-          >
-            <Text style={{ fontSize: 10 }}>{cat.icon}</Text>
-            <Text
+      )}
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, flex: 1 }}>
+          {note.tags.slice(0, 2).map((tag) => (
+            <View
+              key={tag}
               style={{
-                fontSize: 10,
-                fontWeight: "600",
-                color: colors.textTertiary,
+                backgroundColor: colors.primarySoft,
+                borderRadius: 10,
+                paddingHorizontal: 8,
+                paddingVertical: 2,
               }}
             >
-              {cat.name}
-            </Text>
-          </View>
-        )}
-      </View>
-      {note.tags.length > 0 && (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 5 }}>
-          {note.tags.map((tag) => (
-            <Text
-              key={tag}
-              style={{ fontSize: 11, fontWeight: "500", color: colors.primary }}
-            >
-              #{tag}
-            </Text>
+              <Text style={{ color: colors.primary, fontSize: 10, fontWeight: "500" }}>#{tag}</Text>
+            </View>
           ))}
         </View>
-      )}
+        <Text style={{ fontSize: 11, color: colors.textTertiary }}>{formattedDate}</Text>
+      </View>
     </View>
   );
 }
 
 export default function BoardScreen() {
-  const theme = useAppTheme();
-  const { colors, isDark } = theme;
+  const { colors } = useAppTheme();
   const { categories } = useCategoryStore();
   const { notes } = useChatStore();
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
-    categories[0]?.id ?? null,
-  );
-  const [searchActive, setSearchActive] = useState(false);
   const [query, setQuery] = useState("");
-  const searchInputRef = useRef<TextInput>(null);
 
-  const uncategorized = notes.filter((n) => n.categoryId === null);
+  const defaultFolders = categories.filter((c) => c.isDefault);
+  const customFolders = categories.filter((c) => !c.isDefault);
 
-  const categoryFiltered =
-    selectedCategoryId === "__uncategorized__"
-      ? uncategorized
-      : notes.filter((n) => n.categoryId === selectedCategoryId);
-
-  const searchFiltered = query.trim()
+  const filteredNotes = query.trim()
     ? notes.filter((n) => {
         const q = query.toLowerCase();
         return (
-          n.rawContent.toLowerCase().includes(q) ||
           n.title.toLowerCase().includes(q) ||
+          n.rawContent.toLowerCase().includes(q) ||
           n.tags.some((t) => t.toLowerCase().includes(q))
         );
       })
     : notes;
 
-  const displayNotes = searchActive ? searchFiltered : categoryFiltered;
+  const recentNotes = [...filteredNotes]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 10);
 
-  const selectedCategory =
-    selectedCategoryId === "__uncategorized__"
-      ? null
-      : categories.find((c) => c.id === selectedCategoryId);
-
-  function openSearch() {
-    setSearchActive(true);
-    setTimeout(() => searchInputRef.current?.focus(), 50);
-  }
-
-  function closeSearch() {
-    setSearchActive(false);
-    setQuery("");
-  }
+  const countFor = (categoryId: string) =>
+    notes.filter((n) => n.categoryId === categoryId).length;
 
   return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      edges={["top"]}
-    >
-      <StatusBar style={isDark ? "light" : "dark"} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+      <StatusBar style="dark" />
 
-      {/* Header */}
-      <View
-        style={{
-          paddingHorizontal: 20,
-          paddingTop: 14,
-          paddingBottom: 10,
-          borderBottomWidth: 0.5,
-          borderBottomColor: colors.border,
-        }}
-      >
-        {searchActive ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <View
-              style={{
-                flex: 1,
-                flexDirection: "row",
-                alignItems: "center",
-                backgroundColor: colors.surface,
-                borderRadius: 12,
-                paddingHorizontal: 12,
-                paddingVertical: 9,
-                gap: 8,
-                borderWidth: 1,
-                borderColor: colors.border,
-              }}
-            >
-              <Ionicons
-                name="search-outline"
-                size={15}
-                color={colors.textTertiary}
-              />
-              <TextInput
-                ref={searchInputRef}
-                value={query}
-                onChangeText={setQuery}
-                placeholder="키워드, 태그, 제목으로 검색"
-                placeholderTextColor={colors.textTertiary}
-                style={{ flex: 1, color: colors.text, fontSize: 14 }}
-                testID="search-input"
-                returnKeyType="search"
-              />
-              {query.length > 0 && (
-                <TouchableOpacity onPress={() => setQuery("")}>
-                  <Ionicons
-                    name="close-circle"
-                    size={15}
-                    color={colors.textTertiary}
-                  />
-                </TouchableOpacity>
-              )}
-            </View>
-            <TouchableOpacity onPress={closeSearch} activeOpacity={0.7}>
-              <Text
-                style={{
-                  color: colors.primary,
-                  fontSize: 14,
-                  fontWeight: "600",
-                }}
-              >
-                취소
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* 헤더 */}
+        <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
+          <Text style={{ fontSize: 28, fontWeight: "700", color: colors.text, letterSpacing: -0.5 }}>
+            탐색
+          </Text>
+        </View>
+
+        {/* 검색바 */}
+        <View style={{ paddingHorizontal: 20, marginBottom: 20 }}>
           <View
             style={{
               flexDirection: "row",
               alignItems: "center",
-              justifyContent: "space-between",
+              backgroundColor: colors.surfaceElevated,
+              borderRadius: 12,
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              gap: 8,
             }}
           >
-            <View>
-              <Text
-                style={{
-                  color: colors.text,
-                  fontSize: 22,
-                  fontWeight: "800",
-                  letterSpacing: -0.8,
-                }}
-              >
-                보드
-              </Text>
-              <Text
-                style={{
-                  color: colors.textTertiary,
-                  fontSize: 11,
-                  marginTop: 1,
-                }}
-              >
-                카테고리별 아이디어
+            <Text style={{ fontSize: 15, color: colors.textTertiary }}>🔍</Text>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="메모 검색..."
+              placeholderTextColor={colors.textTertiary}
+              style={{ flex: 1, color: colors.text, fontSize: 15, padding: 0 }}
+              testID="search-input"
+            />
+          </View>
+        </View>
+
+        {/* 기본 폴더 */}
+        <View style={{ paddingHorizontal: 20, marginBottom: 8 }}>
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: "600",
+              color: colors.textTertiary,
+              marginBottom: 4,
+            }}
+          >
+            기본 폴더
+          </Text>
+          {defaultFolders.map((folder, idx) => (
+            <View key={folder.id}>
+              <FolderRow
+                icon={folder.icon}
+                name={folder.name}
+                count={countFor(folder.id)}
+                iconBg={FOLDER_BG[folder.name] ?? colors.surfaceElevated}
+              />
+              {idx < defaultFolders.length - 1 && (
+                <View style={{ height: 0.5, backgroundColor: colors.border, marginLeft: 52 }} />
+              )}
+            </View>
+          ))}
+        </View>
+
+        {/* 커스텀 폴더 */}
+        <View style={{ paddingHorizontal: 20, marginBottom: 8, marginTop: 12 }}>
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: "600",
+              color: colors.textTertiary,
+              marginBottom: 4,
+            }}
+          >
+            커스텀 폴더
+          </Text>
+          {customFolders.map((folder, idx) => (
+            <View key={folder.id}>
+              <FolderRow
+                icon={folder.icon}
+                name={folder.name}
+                count={countFor(folder.id)}
+                iconBg={colors.primarySoft}
+              />
+              {idx < customFolders.length - 1 && (
+                <View style={{ height: 0.5, backgroundColor: colors.border, marginLeft: 52 }} />
+              )}
+            </View>
+          ))}
+        </View>
+
+        {/* 새 폴더 추가 */}
+        <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+          <TouchableOpacity
+            style={{
+              borderWidth: 1.5,
+              borderStyle: "dashed",
+              borderColor: colors.border,
+              borderRadius: 14,
+              paddingVertical: 12,
+              alignItems: "center",
+            }}
+            activeOpacity={0.7}
+            testID="add-folder-btn"
+          >
+            <Text style={{ fontSize: 14, color: colors.textTertiary, fontWeight: "500" }}>
+              + 새 폴더 추가
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 최근 메모 */}
+        <View style={{ paddingHorizontal: 20 }}>
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: "600",
+              color: colors.textTertiary,
+              marginBottom: 12,
+            }}
+          >
+            {query.trim() ? "검색 결과" : "최근 메모"}
+          </Text>
+
+          {recentNotes.length === 0 ? (
+            <View style={{ alignItems: "center", paddingVertical: 32 }}>
+              <Text style={{ fontSize: 36 }}>📭</Text>
+              <Text style={{ color: colors.textTertiary, fontSize: 14, marginTop: 12 }}>
+                {query.trim() ? "검색 결과가 없어요" : "저장된 메모가 없어요"}
               </Text>
             </View>
-            <TouchableOpacity
-              onPress={openSearch}
-              activeOpacity={0.75}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                backgroundColor: colors.surface,
-                alignItems: "center",
-                justifyContent: "center",
-                borderWidth: 1,
-                borderColor: colors.border,
-              }}
-              testID="search-toggle"
-            >
-              <Ionicons
-                name="search-outline"
-                size={17}
-                color={colors.textTertiary}
-              />
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-
-      {/* Category chips — hidden during search */}
-      {!searchActive && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{
-            borderBottomWidth: 0.5,
-            borderBottomColor: colors.border,
-            height: 46,
-            flexGrow: 0,
-          }}
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingTop: 0,
-            paddingBottom: 0,
-            gap: 8,
-            alignItems: "center",
-          }}
-          testID="category-tabs"
-        >
-          {categories.map((cat) => {
-            const count = notes.filter((n) => n.categoryId === cat.id).length;
-            const isActive = selectedCategoryId === cat.id;
-            return (
-              <TouchableOpacity
-                key={cat.id}
-                onPress={() => setSelectedCategoryId(cat.id)}
-                activeOpacity={0.75}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  borderRadius: 17,
-                  paddingHorizontal: 14,
-                  height: 34,
-                  backgroundColor: isActive ? colors.primary : colors.surfaceElevated,
-                  borderWidth: 1,
-                  borderColor: isActive ? colors.primary : colors.border,
-                  gap: 4,
-                }}
-                testID={`category-tab-${cat.id}`}
-              >
-                <Text style={{ fontSize: 11, lineHeight: 16 }}>{cat.icon}</Text>
-                <Text
-                  style={{
-                    fontSize: 12,
-                    fontWeight: "600",
-                    color: isActive ? colors.surface : colors.textSecondary,
-                    lineHeight: 17,
-                  }}
-                >
-                  {cat.name}
-                </Text>
-                {count > 0 && (
-                  <Text
-                    style={{
-                      fontSize: 10,
-                      fontWeight: "700",
-                      color: isActive ? colors.surface : colors.textTertiary,
-                      lineHeight: 17,
-                    }}
-                  >
-                    {count}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-
-          {uncategorized.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setSelectedCategoryId("__uncategorized__")}
-              activeOpacity={0.75}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                borderRadius: 17,
-                paddingHorizontal: 14,
-                height: 34,
-                backgroundColor:
-                  selectedCategoryId === "__uncategorized__"
-                    ? colors.primary
-                    : colors.surfaceElevated,
-                borderWidth: 1,
-                borderColor:
-                  selectedCategoryId === "__uncategorized__"
-                    ? colors.primary
-                    : colors.border,
-                gap: 4,
-              }}
-              testID="category-tab-uncategorized"
-            >
-              <Text style={{ fontSize: 11, lineHeight: 16 }}>📥</Text>
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontWeight: "600",
-                  color:
-                    selectedCategoryId === "__uncategorized__"
-                      ? colors.surface
-                      : colors.textSecondary,
-                  lineHeight: 16,
-                }}
-              >
-                미분류
-              </Text>
-            </TouchableOpacity>
+          ) : (
+            recentNotes.map((note) => (
+              <NoteCardSmall key={note.id} note={note} />
+            ))
           )}
-        </ScrollView>
-      )}
-
-      {/* Search hint when active and no query */}
-      {searchActive && !query.trim() && (
-        <View
-          style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
-        >
-          <Ionicons
-            name="search-outline"
-            size={36}
-            color={colors.textTertiary}
-          />
-          <Text
-            style={{ color: colors.textTertiary, fontSize: 14, marginTop: 12 }}
-          >
-            제목, 내용, 태그로 검색하세요
-          </Text>
         </View>
-      )}
 
-      {/* Notes list */}
-      {(!searchActive || query.trim()) &&
-        (displayNotes.length === 0 ? (
-          <View
-            style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
-          >
-            <Text style={{ fontSize: 40 }}>
-              {searchActive ? "🔍" : (selectedCategory?.icon ?? "📥")}
-            </Text>
-            <Text
-              style={{
-                color: colors.text,
-                fontSize: 15,
-                fontWeight: "600",
-                marginTop: 14,
-              }}
-            >
-              {searchActive
-                ? "검색 결과가 없어요"
-                : selectedCategory
-                  ? `${selectedCategory.name}에 아이디어가 없어요`
-                  : "미분류 아이디어가 없어요"}
-            </Text>
-            <Text
-              style={{ color: colors.textTertiary, fontSize: 13, marginTop: 6 }}
-            >
-              {searchActive
-                ? "다른 키워드로 검색해보세요"
-                : "캡처 탭에서 아이디어를 입력해보세요"}
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            data={displayNotes}
-            keyExtractor={(n) => n.id}
-            renderItem={({ item }) =>
-              searchActive ? (
-                <SearchResultCard note={item} colors={colors} />
-              ) : (
-                <NoteCard note={item} colors={colors} />
-              )
-            }
-            contentContainerStyle={
-              searchActive
-                ? { paddingTop: 12, paddingBottom: 16 }
-                : { paddingHorizontal: 16, paddingTop: 0, paddingBottom: 16 }
-            }
-            showsVerticalScrollIndicator={false}
-            testID="note-list"
-          />
-        ))}
+        <View style={{ height: 24 }} />
+      </ScrollView>
     </SafeAreaView>
   );
 }

@@ -37,7 +37,7 @@ describe("SearchScreen", () => {
 
   it("헤더 렌더", () => {
     render(<SearchScreen />);
-    expect(screen.getByText("검색 🔍")).toBeTruthy();
+    expect(screen.getByText("검색")).toBeTruthy();
   });
 
   it("검색어 입력 시 필터링", () => {
