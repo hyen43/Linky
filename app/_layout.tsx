@@ -20,11 +20,11 @@ function AuthGate() {
     if (isLoading) return;
     const inLoginScreen = segments[0] === "login";
     if (!user && !inLoginScreen) {
-      router.replace("/login");
+      router.replace("/login" as never);
     } else if (user && inLoginScreen) {
-      router.replace("/(tabs)");
+      router.replace("/(tabs)" as never);
     }
-  }, [user, isLoading, segments]);
+  }, [user, isLoading]);
 
   return null;
 }

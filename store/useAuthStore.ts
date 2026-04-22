@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
+import { useChatStore } from "./useChatStore";
+import { useCategoryStore } from "./useCategoryStore";
 
 interface AuthState {
   user: User | null;
@@ -37,6 +39,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   signOut: async () => {
     await supabase.auth.signOut();
+    useChatStore.setState({ messages: [], notes: [], initialized: false, pendingNoteId: null, drillDownResults: {}, drillingDownKeys: [], isTyping: false, isRecording: false });
+    useCategoryStore.setState({ categories: [], initialized: false });
     set({ user: null, session: null });
   },
 }));
