@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { ChatMessage, DerivedIdea, DrillDownResult, Note } from "../types";
 import { drillDownIdea, processIdea } from "../lib/claude";
 import { useCategoryStore } from "./useCategoryStore";
+import { useAuthStore } from "./useAuthStore";
 
 let _msgId = 0;
 const msgId = () => `msg-${++_msgId}-${Date.now()}`;
@@ -85,9 +86,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
   initialize: async () => {
     if (get().initialized) return;
 
+    const userId = useAuthStore.getState().user?.id;
     const { data, error } = await supabase
       .from("notes")
       .select("*")
+      .eq("user_id", userId ?? "")
       .order("created_at", { ascending: true });
 
     if (error) { console.warn("notes fetch error:", error.message); return; }
@@ -126,9 +129,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       categories[0]?.id ??
       null;
 
+    const userId = useAuthStore.getState().user?.id ?? "local";
     const note: Note = {
       id: `note-${Date.now()}`,
-      userId: "local",
+      userId,
       rawContent: text,
       summary: result.summary,
       contentType: result.contentType,
@@ -167,7 +171,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   saveNote: ({ title, content, tags, categoryId = null }) => {
     const note: Note = {
       id: `note-${Date.now()}`,
-      userId: "local",
+      userId: useAuthStore.getState().user?.id ?? "local",
       rawContent: content,
       summary: content.slice(0, 60),
       contentType: "idea",

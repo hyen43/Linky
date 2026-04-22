@@ -1,15 +1,16 @@
 import { create } from "zustand";
 import { supabase } from "../lib/supabase";
 import { Category, DEFAULT_CATEGORIES } from "../types";
+import { useAuthStore } from "./useAuthStore";
 
 let _idCounter = 100;
 const genId = () => `cat-${++_idCounter}-${Date.now()}`;
 
-const buildDefaults = (): Category[] =>
+const buildDefaults = (userId = "local"): Category[] =>
   DEFAULT_CATEGORIES.map((c, i) => ({
     ...c,
     id: `cat-default-${i}`,
-    userId: "local",
+    userId,
     createdAt: new Date(),
   }));
 
@@ -56,15 +57,17 @@ interface CategoryState {
 }
 
 export const useCategoryStore = create<CategoryState>((set, get) => ({
-  categories: buildDefaults(),
+  categories: [],
   initialized: false,
 
   initialize: async () => {
     if (get().initialized) return;
 
+    const userId = useAuthStore.getState().user?.id;
     const { data, error } = await supabase
       .from("categories")
       .select("*")
+      .eq("user_id", userId ?? "")
       .order("sort_order");
 
     if (error) { console.warn("categories fetch error:", error.message); return; }
@@ -73,7 +76,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
       set({ categories: data.map(fromDb), initialized: true });
     } else {
       // 첫 실행: 기본 카테고리 DB에 저장
-      const defaults = buildDefaults();
+      const defaults = buildDefaults(userId);
       await supabase.from("categories").insert(defaults.map(toDb));
       set({ categories: defaults, initialized: true });
     }
@@ -82,7 +85,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
   addCategory: async ({ name, color, icon }) => {
     const newCat: Category = {
       id: genId(),
-      userId: "local",
+      userId: useAuthStore.getState().user?.id ?? "local",
       name,
       color,
       icon,
