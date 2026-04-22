@@ -1,10 +1,13 @@
 import React, { forwardRef, useCallback, useRef, useState } from "react";
-import { Keyboard, Platform, Text, TouchableOpacity, View } from "react-native";
+import { Keyboard, Platform, Text, TextInput, TouchableOpacity, View } from "react-native";
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
-  BottomSheetTextInput,
+  BottomSheetTextInput as BSTextInput,
 } from "@gorhom/bottom-sheet";
+
+// 웹에서 BottomSheetTextInput은 네이티브 전용 API를 사용해 크래시 발생
+const SheetInput = Platform.OS === "web" ? TextInput : BSTextInput;
 import { Ionicons } from "@expo/vector-icons";
 import { useChatStore } from "../../store/useChatStore";
 import { useAppTheme } from "../../lib/theme";
@@ -177,7 +180,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
               >
                 타이틀
               </Text>
-              <BottomSheetTextInput
+              <SheetInput
                 value={title}
                 onChangeText={setTitle}
                 placeholder="아이디어 제목"
@@ -211,7 +214,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
               >
                 내용
               </Text>
-              <BottomSheetTextInput
+              <SheetInput
                 value={content}
                 onChangeText={setContent}
                 placeholder="아이디어를 자유롭게 적어보세요"
@@ -301,7 +304,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
                   gap: 8,
                 }}
               >
-                <BottomSheetTextInput
+                <SheetInput
                   value={tagInput}
                   onChangeText={handleTagInputChange}
                   onSubmitEditing={handleTagInputSubmit}
