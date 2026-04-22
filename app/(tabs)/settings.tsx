@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   Alert,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -48,18 +49,24 @@ export default function SettingsScreen() {
   const { user, signOut } = useAuthStore();
   const router = useRouter();
 
-  const handleSignOut = () => {
-    Alert.alert("로그아웃", "정말 로그아웃 할까요?", [
-      { text: "취소", style: "cancel" },
-      {
-        text: "로그아웃",
-        style: "destructive",
-        onPress: async () => {
-          await signOut();
-          router.replace("/login" as never);
+  const handleSignOut = async () => {
+    if (Platform.OS === "web") {
+      if (!window.confirm("정말 로그아웃 할까요?")) return;
+      await signOut();
+      router.replace("/login" as never);
+    } else {
+      Alert.alert("로그아웃", "정말 로그아웃 할까요?", [
+        { text: "취소", style: "cancel" },
+        {
+          text: "로그아웃",
+          style: "destructive",
+          onPress: async () => {
+            await signOut();
+            router.replace("/login" as never);
+          },
         },
-      },
-    ]);
+      ]);
+    }
   };
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
