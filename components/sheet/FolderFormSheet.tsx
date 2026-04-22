@@ -1,0 +1,264 @@
+import React, { forwardRef, useCallback, useState } from "react";
+import { Text, TouchableOpacity, View } from "react-native";
+import BottomSheet, {
+  BottomSheetBackdrop,
+  BottomSheetScrollView,
+  BottomSheetTextInput,
+} from "@gorhom/bottom-sheet";
+import { useCategoryStore } from "../../store/useCategoryStore";
+import { useAppTheme } from "../../lib/theme";
+
+const PRESET_EMOJIS = [
+  "📁", "🎥", "✍️", "📸", "🎙️", "📚", "💡", "🌟",
+  "🔥", "🎯", "💰", "🎨", "🏆", "📱", "🌈", "🚀",
+];
+
+const PRESET_COLORS = [
+  "#1A6DFF", "#6366F1", "#8B5CF6", "#EC4899",
+  "#EF4444", "#F59E0B", "#10B981", "#06B6D4",
+];
+
+interface Props {
+  onClose?: () => void;
+}
+
+export type FolderFormSheetRef = BottomSheet;
+
+export const FolderFormSheet = forwardRef<FolderFormSheetRef, Props>(
+  ({ onClose }, ref) => {
+    const { colors } = useAppTheme();
+    const { addCategory } = useCategoryStore();
+    const [name, setName] = useState("");
+    const [selectedEmoji, setSelectedEmoji] = useState("📁");
+    const [selectedColor, setSelectedColor] = useState("#1A6DFF");
+
+    const canSave = name.trim().length > 0;
+
+    const handleSave = useCallback(() => {
+      if (!canSave) return;
+      addCategory({ name: name.trim(), icon: selectedEmoji, color: selectedColor });
+      setName("");
+      setSelectedEmoji("📁");
+      setSelectedColor("#1A6DFF");
+      (ref as React.RefObject<BottomSheet>)?.current?.close();
+      onClose?.();
+    }, [name, selectedEmoji, selectedColor, canSave]);
+
+    const renderBackdrop = useCallback(
+      (props: any) => (
+        <BottomSheetBackdrop
+          {...props}
+          disappearsOnIndex={-1}
+          appearsOnIndex={0}
+          opacity={0.6}
+        />
+      ),
+      []
+    );
+
+    return (
+      <BottomSheet
+        ref={ref}
+        index={-1}
+        snapPoints={["65%"]}
+        enablePanDownToClose
+        backdropComponent={renderBackdrop}
+        backgroundStyle={{ backgroundColor: colors.surface }}
+        handleIndicatorStyle={{ backgroundColor: colors.border, width: 36, height: 4 }}
+        onChange={(index) => { if (index === -1) onClose?.(); }}
+      >
+        <BottomSheetScrollView
+          contentContainerStyle={{ paddingBottom: 48 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Header */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingHorizontal: 24,
+              paddingTop: 8,
+              paddingBottom: 20,
+              borderBottomWidth: 0.5,
+              borderBottomColor: colors.border,
+            }}
+          >
+            <Text
+              style={{
+                color: colors.text,
+                fontSize: 17,
+                fontWeight: "700",
+                letterSpacing: -0.4,
+              }}
+            >
+              새 폴더
+            </Text>
+            <TouchableOpacity
+              onPress={handleSave}
+              disabled={!canSave}
+              style={{
+                backgroundColor: canSave ? colors.primary : colors.surfaceElevated,
+                paddingHorizontal: 18,
+                paddingVertical: 8,
+                borderRadius: 20,
+              }}
+            >
+              <Text
+                style={{
+                  color: canSave ? "#FFFFFF" : colors.textTertiary,
+                  fontSize: 14,
+                  fontWeight: "700",
+                }}
+              >
+                만들기
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ paddingHorizontal: 24, paddingTop: 20, gap: 20 }}>
+            {/* Preview */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                backgroundColor: colors.surfaceElevated,
+                borderRadius: 14,
+                padding: 14,
+              }}
+            >
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  backgroundColor: selectedColor + "25",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ fontSize: 22 }}>{selectedEmoji}</Text>
+              </View>
+              <Text
+                style={{
+                  fontSize: 17,
+                  fontWeight: "600",
+                  color: name ? colors.text : colors.textTertiary,
+                }}
+              >
+                {name || "폴더 이름"}
+              </Text>
+            </View>
+
+            {/* Name input */}
+            <View style={{ gap: 8 }}>
+              <Text
+                style={{
+                  color: colors.textTertiary,
+                  fontSize: 11,
+                  fontWeight: "600",
+                  letterSpacing: 0.8,
+                  textTransform: "uppercase",
+                }}
+              >
+                폴더 이름
+              </Text>
+              <BottomSheetTextInput
+                value={name}
+                onChangeText={setName}
+                placeholder="예: 유튜브 브이로그"
+                placeholderTextColor={colors.textTertiary}
+                returnKeyType="done"
+                style={{
+                  backgroundColor: colors.surfaceElevated,
+                  borderRadius: 12,
+                  paddingHorizontal: 16,
+                  paddingVertical: 14,
+                  color: colors.text,
+                  fontSize: 16,
+                  borderWidth: 1,
+                  borderColor: name ? colors.primary : colors.border,
+                }}
+              />
+            </View>
+
+            {/* Emoji picker */}
+            <View style={{ gap: 8 }}>
+              <Text
+                style={{
+                  color: colors.textTertiary,
+                  fontSize: 11,
+                  fontWeight: "600",
+                  letterSpacing: 0.8,
+                  textTransform: "uppercase",
+                }}
+              >
+                아이콘
+              </Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {PRESET_EMOJIS.map((emoji) => (
+                  <TouchableOpacity
+                    key={emoji}
+                    onPress={() => setSelectedEmoji(emoji)}
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 12,
+                      backgroundColor:
+                        selectedEmoji === emoji ? colors.primarySoft : colors.surfaceElevated,
+                      borderWidth: selectedEmoji === emoji ? 1.5 : 0,
+                      borderColor: colors.primary,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Text style={{ fontSize: 20 }}>{emoji}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Color picker */}
+            <View style={{ gap: 8 }}>
+              <Text
+                style={{
+                  color: colors.textTertiary,
+                  fontSize: 11,
+                  fontWeight: "600",
+                  letterSpacing: 0.8,
+                  textTransform: "uppercase",
+                }}
+              >
+                색상
+              </Text>
+              <View style={{ flexDirection: "row", gap: 12, flexWrap: "wrap" }}>
+                {PRESET_COLORS.map((color) => (
+                  <TouchableOpacity
+                    key={color}
+                    onPress={() => setSelectedColor(color)}
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      backgroundColor: color,
+                      borderWidth: selectedColor === color ? 3 : 2,
+                      borderColor: selectedColor === color ? "#FFFFFF" : "transparent",
+                      shadowColor: color,
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: selectedColor === color ? 0.5 : 0,
+                      shadowRadius: 4,
+                      elevation: selectedColor === color ? 4 : 0,
+                    }}
+                  />
+                ))}
+              </View>
+            </View>
+          </View>
+        </BottomSheetScrollView>
+      </BottomSheet>
+    );
+  }
+);
+
+FolderFormSheet.displayName = "FolderFormSheet";

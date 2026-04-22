@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   ScrollView,
   Text,
@@ -8,9 +8,14 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import { router } from "expo-router";
 import { useCategoryStore } from "../../store/useCategoryStore";
 import { useChatStore } from "../../store/useChatStore";
 import { useAppTheme } from "../../lib/theme";
+import {
+  FolderFormSheet,
+  FolderFormSheetRef,
+} from "../../components/sheet/FolderFormSheet";
 import type { Note } from "../../types";
 
 const FOLDER_BG: Record<string, string> = {
@@ -56,12 +61,17 @@ function FolderRow({
       <Text style={{ flex: 1, fontSize: 16, fontWeight: "600", color: colors.text }}>
         {name}
       </Text>
-      <Text style={{ fontSize: 14, color: colors.textTertiary, fontWeight: "500" }}>{count}</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+        <Text style={{ fontSize: 14, color: colors.textTertiary, fontWeight: "500" }}>
+          {count}
+        </Text>
+        <Text style={{ fontSize: 16, color: colors.textTertiary }}>›</Text>
+      </View>
     </TouchableOpacity>
   );
 }
 
-function NoteCardSmall({ note }: { note: Note }) {
+function NoteCardSmall({ note, onPress }: { note: Note; onPress: () => void }) {
   const { colors } = useAppTheme();
 
   const formattedDate = note.createdAt.toLocaleDateString("ko-KR", {
@@ -73,7 +83,9 @@ function NoteCardSmall({ note }: { note: Note }) {
   });
 
   return (
-    <View
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.7}
       style={{
         backgroundColor: colors.surface,
         borderRadius: 14,
@@ -91,13 +103,24 @@ function NoteCardSmall({ note }: { note: Note }) {
       </Text>
       {note.rawContent.trim().length > 0 && (
         <Text
-          style={{ fontSize: 13, color: colors.textTertiary, lineHeight: 20, marginBottom: 8 }}
+          style={{
+            fontSize: 13,
+            color: colors.textTertiary,
+            lineHeight: 20,
+            marginBottom: 8,
+          }}
           numberOfLines={2}
         >
           {note.rawContent}
         </Text>
       )}
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, flex: 1 }}>
           {note.tags.slice(0, 2).map((tag) => (
             <View
@@ -109,13 +132,15 @@ function NoteCardSmall({ note }: { note: Note }) {
                 paddingVertical: 2,
               }}
             >
-              <Text style={{ color: colors.primary, fontSize: 10, fontWeight: "500" }}>#{tag}</Text>
+              <Text style={{ color: colors.primary, fontSize: 10, fontWeight: "500" }}>
+                #{tag}
+              </Text>
             </View>
           ))}
         </View>
         <Text style={{ fontSize: 11, color: colors.textTertiary }}>{formattedDate}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -123,13 +148,16 @@ export default function BoardScreen() {
   const { colors } = useAppTheme();
   const { categories } = useCategoryStore();
   const { notes } = useChatStore();
+  const folderSheetRef = useRef<FolderFormSheetRef>(null);
   const [query, setQuery] = useState("");
 
   const defaultFolders = categories.filter((c) => c.isDefault);
   const customFolders = categories.filter((c) => !c.isDefault);
 
+  const confirmedNotes = notes.filter((n) => n.confirmed !== false);
+
   const filteredNotes = query.trim()
-    ? notes.filter((n) => {
+    ? confirmedNotes.filter((n) => {
         const q = query.toLowerCase();
         return (
           n.title.toLowerCase().includes(q) ||
@@ -137,14 +165,14 @@ export default function BoardScreen() {
           n.tags.some((t) => t.toLowerCase().includes(q))
         );
       })
-    : notes;
+    : confirmedNotes;
 
   const recentNotes = [...filteredNotes]
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     .slice(0, 10);
 
   const countFor = (categoryId: string) =>
-    notes.filter((n) => n.categoryId === categoryId).length;
+    confirmedNotes.filter((n) => n.categoryId === categoryId).length;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
@@ -153,7 +181,14 @@ export default function BoardScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* 헤더 */}
         <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
-          <Text style={{ fontSize: 28, fontWeight: "700", color: colors.text, letterSpacing: -0.5 }}>
+          <Text
+            style={{
+              fontSize: 28,
+              fontWeight: "700",
+              color: colors.text,
+              letterSpacing: -0.5,
+            }}
+          >
             탐색
           </Text>
         </View>
@@ -180,6 +215,11 @@ export default function BoardScreen() {
               style={{ flex: 1, color: colors.text, fontSize: 15, padding: 0 }}
               testID="search-input"
             />
+            {query.length > 0 && (
+              <TouchableOpacity onPress={() => setQuery("")}>
+                <Text style={{ fontSize: 14, color: colors.textTertiary }}>✕</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -202,44 +242,61 @@ export default function BoardScreen() {
                 name={folder.name}
                 count={countFor(folder.id)}
                 iconBg={FOLDER_BG[folder.name] ?? colors.surfaceElevated}
+                onPress={() => router.push(`/folder/${folder.id}`)}
               />
               {idx < defaultFolders.length - 1 && (
-                <View style={{ height: 0.5, backgroundColor: colors.border, marginLeft: 52 }} />
+                <View
+                  style={{
+                    height: 0.5,
+                    backgroundColor: colors.border,
+                    marginLeft: 52,
+                  }}
+                />
               )}
             </View>
           ))}
         </View>
 
         {/* 커스텀 폴더 */}
-        <View style={{ paddingHorizontal: 20, marginBottom: 8, marginTop: 12 }}>
-          <Text
-            style={{
-              fontSize: 13,
-              fontWeight: "600",
-              color: colors.textTertiary,
-              marginBottom: 4,
-            }}
-          >
-            커스텀 폴더
-          </Text>
-          {customFolders.map((folder, idx) => (
-            <View key={folder.id}>
-              <FolderRow
-                icon={folder.icon}
-                name={folder.name}
-                count={countFor(folder.id)}
-                iconBg={colors.primarySoft}
-              />
-              {idx < customFolders.length - 1 && (
-                <View style={{ height: 0.5, backgroundColor: colors.border, marginLeft: 52 }} />
-              )}
-            </View>
-          ))}
-        </View>
+        {customFolders.length > 0 && (
+          <View style={{ paddingHorizontal: 20, marginBottom: 8, marginTop: 12 }}>
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: "600",
+                color: colors.textTertiary,
+                marginBottom: 4,
+              }}
+            >
+              커스텀 폴더
+            </Text>
+            {customFolders.map((folder, idx) => (
+              <View key={folder.id}>
+                <FolderRow
+                  icon={folder.icon}
+                  name={folder.name}
+                  count={countFor(folder.id)}
+                  iconBg={colors.primarySoft}
+                  onPress={() => router.push(`/folder/${folder.id}`)}
+                />
+                {idx < customFolders.length - 1 && (
+                  <View
+                    style={{
+                      height: 0.5,
+                      backgroundColor: colors.border,
+                      marginLeft: 52,
+                    }}
+                  />
+                )}
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* 새 폴더 추가 */}
-        <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+        <View style={{ paddingHorizontal: 20, marginBottom: 24, marginTop: 12 }}>
           <TouchableOpacity
+            onPress={() => folderSheetRef.current?.expand()}
             style={{
               borderWidth: 1.5,
               borderStyle: "dashed",
@@ -279,13 +336,19 @@ export default function BoardScreen() {
             </View>
           ) : (
             recentNotes.map((note) => (
-              <NoteCardSmall key={note.id} note={note} />
+              <NoteCardSmall
+                key={note.id}
+                note={note}
+                onPress={() => router.push(`/note/${note.id}`)}
+              />
             ))
           )}
         </View>
 
         <View style={{ height: 24 }} />
       </ScrollView>
+
+      <FolderFormSheet ref={folderSheetRef} />
     </SafeAreaView>
   );
 }

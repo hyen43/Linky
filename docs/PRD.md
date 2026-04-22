@@ -1,239 +1,284 @@
-# Linky (링키) — Product Requirements Document v4
+# Linky (링키) — Product Requirements Document v1.0
 
-## Vision
-> "아이디어를 떠올리기만 해. 나머지는 링키가 다 한다."
+> **"아이디어를 떠올리기만 해. 나머지는 링키가 다 한다."**
 
-콘텐츠 크리에이터의 실제 창작 워크플로우를 AI로 자동화.
-단 하나의 키워드를 입력하면, AI가 파생 아이디어·제목 공식·카테고리 관리까지 완성해준다.
+`v1.0` · `2026.04.22`
 
 ---
 
-## Target Users
-**1순위**: 유튜버, 블로거, 인스타그래머, 뉴스레터 작가, 팟캐스터
-**공통 페인포인트**: 아이디어는 넘치는데 → 정리에서 막힘 → 막상 만들 때 소재가 없음
+## 1. 프로젝트 개요
+
+### 1.1 한 줄 소개
+
+Linky(링키)는 전세계 콘텐츠 크리에이터(유튜버, 블로거, 인스타그래머, 팟캐스터 등)를 위한 **AI 아이디어 인큐베이션 노트앱**입니다. 아이디어의 발상부터 콘텐츠 완성까지, 전체 제작 파이프라인을 AI가 함께 관리합니다.
+
+### 1.2 비전 & 미션
+
+- **Vision:** 모든 콘텐츠 크리에이터가 아이디어를 헛되이 버리지 않는 세상을 만든다.
+- **Mission:** 채팅처럼 가볍게 적고, AI가 구조화하고, 실행까지 독려하는 아이디어 매니저.
+
+### 1.3 핵심 가치 제안 (Value Proposition)
+
+| 가치 | 설명 |
+| --- | --- |
+| **Zero Friction Capture** | 채팅처럼 자연스럽게 입력, AI가 자동 구조화 |
+| **AI Incubation** | 제목 + 맥락만 입력하면 예상 타겟 및 제목 추천 |
+| **Accountability System** | 진행률 기반 채찍질 알림으로 실행력 강화 |
 
 ---
 
-## 카테고리 시스템 (핵심 모델)
+## 2. 타깃 유저 & 페인포인트
 
-### 개념
-> **Stage(단계)는 존재하지 않는다. 모든 것은 Category다.**
+### 2.1 타깃 유저
 
-- 카테고리 = 사용자가 자유롭게 만들고, 이름 짓고, 삭제하는 **유연한 버킷**
-- 앱은 시작 시 **Default 카테고리 4개**를 제공 (사용자가 원하면 수정/삭제 가능)
-- 사용자는 언제든 카테고리를 **추가·이름변경·삭제·순서변경** 가능
-- 아이디어를 저장할 때 카테고리를 직접 선택하거나, AI가 추천
+콘텐츠 크리에이터 — 유튜버, 블로거, 인스타그래머, 뉴스레터 작가, 팟캐스터
 
-### Default 카테고리 (첫 실행 시 자동 생성)
-| 이름 | 색상 | 설명 |
-|---|---|---|
-| 💡 초안 | 노란색 | 방금 떠오른 아이디어. 아직 다듬지 않음 |
-| 📦 보관함 | 파란색 | 나중에 쓸 것. 지금 당장은 아닌 것 |
-| 🎬 제작중 | 보라색 | 현재 작업 중인 아이디어 |
-| ✅ 완료 | 초록색 | 발행·완성된 콘텐츠 |
+### 2.2 페인포인트 분석
 
-### 사용자 커스텀 카테고리 예시
-```
-💡 초안          (default)
-📦 보관함         (default)
-🎬 제작중         (default)
-✅ 완료           (default)
-─────────────────
-🎥 유튜브 브이로그  (사용자 추가)
-✍️ 블로그 글감      (사용자 추가)
-📸 릴스 컨셉       (사용자 추가)
-+ 카테고리 추가
-```
+| 단계 | 문제 | Linky 해결책 |
+| --- | --- | --- |
+| **발상** | 아이디어는 넘치지만 메모 앱을 열고 정리하기 귀찮음 | 채팅 UI로 바로 입력, AI 자동 구조화 |
+| **정리** | 제목/본문/태그 분류하는 과정이 번거로움 | 퀵 모드(AI 자동) + 노트 모드(Bottomsheet 직접 입력) |
+| **기획** | 타겟이 누구인지, 어떤 제목이 좋을지 고민 | AI가 예상 타겟 및 제목 3개 추천 |
+| **실행** | 초안만 쌓이고 실제 제작으로 이어지지 않음 | 7일 진행률 분석 + 채찍질 알림 |
 
-### 미분류 아이디어 자동 묶음 (AI Auto-Grouping)
-Obsidian의 Periodic Notes에서 영감. 카테고리 없이 쌓인 아이디어를 AI가 주기적으로 정리.
+### 2.3 유저 페르소나
 
-**동작 방식:**
-1. 카테고리 미지정 아이디어가 **30일(기본값, 사용자 설정 가능)** 이상 누적되면 실행
-2. pgvector 유사도 분석으로 의미적으로 가까운 것끼리 클러스터링
-3. 클러스터마다 AI가 카테고리 이름 자동 생성 (예: "브이로그 소재 묶음", "자기계발 글감")
-4. 사용자에게 제안 노티: "30개의 미분류 아이디어를 3개 그룹으로 묶었어요. 확인해볼까요? 👀"
-5. 사용자가 **수락 / 수정 / 거절** 선택
-
-**설정 가능 항목:**
-- 주기: 2주 / 1달(기본) / 3달
-- 최소 묶음 개수: 미분류 아이디어가 N개 이상일 때만 실행 (기본 10개)
+> **김창작 (28세, 유튜버 구독자 1.2만)**
+>
+> "매일 영상 아이디어가 3개씩 떠오르는데, 카카오톡 저장 메모에 쌓아두다가 결국 다 잊어버려요. 정리하려고 앉으면 막막하고, 그냥 찍기 시작하면 소재가 없는 것 같고..."
 
 ---
 
-## 입력 UX (직접 입력 + AI 자동 분류 통합)
+## 3. 핵심 기능 & 화면 상세
 
-```
-┌───────────────────────────────────────────┐
-│ 오늘 떠오른 아이디어를 말해보세요           │
-│                                           │
-│                                           │
-├───────────────────────────────────────────┤
-│ 🎤  [카테고리 선택 ▾]              ➤      │
-└───────────────────────────────────────────┘
-```
+### 3.1 탭 구조
 
-**두 경로:**
-- **AI 자동**: 카테고리 선택 안 함 → AI가 텍스트 분석 후 카테고리 추천 → 저장 후 변경 가능
-- **직접 선택**: 카테고리 탭 → 사용자가 선택 → AI는 나머지(파생 아이디어·태그·제목)만 생성
+**3탭 구조:** 노트(채팅) / 탐색(폴더) / 마이(통계)
 
----
+### 3.2 노트 탭 (메인 화면)
 
-## Core Features
+채팅 UI 기반의 아이디어 입력 화면.
 
-### 1. ⚡ 즉각 캡처 — MLP
-- 앱 오픈 = 바로 입력창 (로딩 없음)
-- 텍스트 + 음성 입력
-- 선택적 카테고리 지정 (안 하면 AI가 Default 카테고리 중 추천)
+**입력 모드 — Flow A: 퀵 모드**
+- 하단 입력창에 한 줄로 자유롭게 입력
+- 전송 → AI가 자동으로 제목/요약/태그/파생 아이디어 구조화
+- AI 구조화 카드로 결과 미리보기 → 저장 or 수정
 
-### 2. 🌱 AI 파생 아이디어 ×3 — MLP
-키워드 1개 → 파생 카드 3개 자동 생성:
-```
-📌 맥락   이 아이디어가 통하는 트렌드/배경
-🎯 타겟   정확한 독자/시청자
-📝 제목   클릭 유도형 예상 제목
-```
+**입력 모드 — Flow B: 노트 모드**
+- 입력창 우측 "노트 모드" 버튼 탭
+- Bottomsheet 열림: 제목 / 본문 / 태그 / 폴더 직접 입력
+- "저장하기" 버튼으로 즉시 저장 (AI 처리 없음)
 
-### 3. 🗂️ 카테고리 관리 — MLP
-- Default 4개 카테고리 제공
-- `+ 카테고리 추가`: 이름·색상·이모지 설정
-- 이름변경 / 삭제 / 순서 드래그
-- 아이디어 카드 길게 누르기 → 카테고리 이동
+### 3.3 탐색 탭
 
-### 4. 🤖 미분류 자동 묶음 — MLP
-- 주기적 AI 클러스터링 (기본 30일)
-- 카테고리 이름 자동 제안
-- 사용자 수락/수정/거절
+#### 폴더 구조
 
-### 5. 🏷️ 상태 태그 — MLP
-```
-[💡초안] [#브이로그] [#새벽기상]
-```
-- AI 추출 키워드 태그
-- 카테고리 배지 (색상 자동 반영)
+- **기본 폴더 3개:** 초안 / 제작중 / 완료 (수정/삭제 가능)
+- **커스텀 폴더:** 사용자가 자유롭게 추가 (예: 유튜브 쇼츠, 블로그 포스트)
+- **검색 기능:** 상단 검색바로 메모 제목·내용·태그 검색
 
-### 6. 🔤 제목 공식 엔진 — MLP
-AI가 입력 기반으로 SEO 최적화 제목 3안 생성:
-- 숫자+행동+결과 공식
-- 역발상 공식
-- 타겟 직접 호명 공식
+#### 폴더 상세 화면
 
-### 7. 🔍 꺼내기 (Retrieve) — MLP
-- 카테고리 필터
-- 자연어 검색
-- 유사 아이디어 자동 묶음 (pgvector)
+폴더를 탭하면 폴더 상세 화면으로 **push 네비게이션**됩니다.
 
-### 8. 📅 콘텐츠 캘린더 — v1.1
-- 업로드 예정일 연결
-- 주간 파이프라인 뷰
+- **필터 칩:** 전체 / 최신순 / 태그별로 메모 필터링
+- **메모 카드:** 제목, 미리보기(2줄 말줄임), 태그, 날짜, AI 분석 완료 여부
+- **FAB(플로팅 버튼):** 폴더 상세에서 바로 새 메모 작성 가능
+- **Empty State:** 빈 폴더일 때 동기부여 카피 표시
+
+### 3.4 마이페이지
+
+#### 통계 대시보드
+
+초안, 제작중, 완료 각각의 메모 개수를 **3칸 그리드**로 표시.
+
+#### 채찍질 시스템 (7일 진행률 리포트)
+
+7일 동안의 진행 전환율을 **블루 그라디언트 카드**로 시각화:
+- 초안 → 제작중 전환율
+- 제작중 → 완료 전환율
+- AI 코치 메시지 (진행 상태에 따라 동적 생성)
 
 ---
 
-## AI 처리 파이프라인
+## 4. 내비게이션 구조
+
+### 4.1 탭 구성
+
+| 탭 | 역할 | 주요 화면 |
+| --- | --- | --- |
+| **노트** | 아이디어 입력/채팅 | 채팅 피드 / AI 구조화 카드 / NoteCard |
+| **탐색** | 폴더·검색 | 폴더 목록 / 폴더 상세 / 검색 |
+| **마이** | 통계, 진행률 리포트 | 프로필 / 채찍질 카드 / 설정 |
+
+### 4.2 화면 플로우
 
 ```
-사용자 입력 (텍스트/음성)
-    + 카테고리 선택 여부 (optional)
-         ↓
-[Claude API]
-         ↓
-{
-  "suggested_category": "초안",     // 선택 안 했을 때만
-  "content_type": "idea|script|reference|hook",
-  "summary": "한 줄 요약 (20자)",
-  "tags": ["키워드1", "키워드2"],
-  "derived_ideas": [
-    { "context": "...", "target": "...", "expected_title": "..." },
-    { "context": "...", "target": "...", "expected_title": "..." },
-    { "context": "...", "target": "...", "expected_title": "..." }
-  ],
-  "title_options": [
-    { "formula": "숫자+행동+결과", "title": "..." },
-    { "formula": "역발상",        "title": "..." },
-    { "formula": "타겟호명",      "title": "..." }
-  ]
-}
-         ↓
-Vector Embedding → pgvector 저장
-         ↓
-유사 과거 아이디어 서페이싱
+메인(채팅) → 입력 → AI 구조화 응답 → 저장 → 메모 상세
+탐색 → 폴더 선택 → 폴더 상세(push) → 메모 탭 → 메모 상세
+마이페이지 → 진행률 확인 → 알림 설정
 ```
 
 ---
 
-## Information Architecture
+## 5. 디자인 시스템
 
-```
-Linky
-├── ✏️ 캡처      ← 입력 (홈)
-├── 📋 보드      ← 카테고리별 아이디어 목록 + 칸반
-├── 🔍 검색      ← 키워드 + 카테고리 필터
-└── ⚙️ 설정     ← 카테고리 관리, 자동 묶음 주기 설정
-```
+### 5.1 디자인 원칙
+
+| 원칙 | 설명 |
+| --- | --- |
+| **깨끗하고 심플** | 화이트 베이스에 블루 포인트 컬러 (필라이즈 레퍼런스) |
+| **Zero Friction** | 입력까지 최소 탭수. 한 화면에서 입력부터 저장까지 완결 |
+| **Familiar UX** | 카카오톡/인스타 DM 같은 채팅 UI + 아이폰 메모앱 같은 구조화 |
+| **Dual Mode** | 퀵 모드(빠른 캡처) + 노트 모드(정밀 입력) 선택권 제공 |
+
+### 5.2 컬러 시스템
+
+| 용도 | Light Mode | Dark Mode |
+| --- | --- | --- |
+| **Primary (Blue)** | `#1A6DFF` | `#1A6DFF` |
+| **Background** | `#FFFFFF` | `#061225` |
+| **Surface** | `#FFFFFF` | `#0C1D34` |
+| **Surface Elevated** | `#F2F3F5` | `#122A45` |
+| **Border** | `#E5E5E5` | `#1E3A5B` |
+| **Text** | `#111111` | `#F8FAFC` |
+| **Text Secondary** | `#555555` | `#D0DEEF` |
+| **Text Tertiary** | `#999999` | `#8AA4C1` |
+| **Primary Soft** | `#E8F0FE` | `#1E3A5B` |
+| **Note Bg** | `#F0F6FF` | `#0D2240` |
+| **Note Border** | `#D0E2FF` | `#1E3A5B` |
+
+### 5.3 컴포넌트 스타일
+
+| 컴포넌트 | 사양 |
+| --- | --- |
+| **Chat Bubble** | border-radius 18px, bottom-right 4px(user) / bottom-left 4px(AI) |
+| **Note Card** | border-radius 16px, 0.5px border, padding 14–16px |
+| **Tag Chip** | border-radius 12px, padding 3px 10px, font-size 12px |
+| **Input Field** | border-radius 20px, height 38px, bg `#F7F7F8` |
+| **Bottom Tab Bar** | height 83px, 3탭(노트/탐색/마이), icon 24px + label 10px |
+| **FAB** | 52px 원형, Blue background, 우하단 고정, shadow 포함 |
+| **Bottomsheet** | top border-radius 20px, handle bar 36×4px, 필드간 간격 16px |
+| **Status Badge** | border-radius 10px, font-size 11px, semi-bold |
 
 ---
 
-## Supabase Schema (v4)
+## 6. 화면 목록 (Screen Inventory)
+
+| No. | 화면명 | 설명 | 상태 |
+| --- | --- | --- | --- |
+| 1 | **메인 (채팅노트)** | 채팅 UI 기반 아이디어 입력, 노트 버블, 폴더 셀렉터, 하단 탭바 | ✅ 구현 |
+| 2 | **메모 상세** | 메모 내용 + AI 예상 타겟 칩 + AI 추천 제목 3개(선택 버튼) + 삭제 | ✅ 구현 |
+| 3 | **탐색 (폴더 목록)** | 기본/커스텀 폴더 목록 + 검색바 + 최근 메모 | ✅ 구현 |
+| 4 | **폴더 상세** | 폴더 내 메모 목록 + 필터 칩 + FAB + Empty State | ✅ 구현 |
+| 5 | **마이페이지** | 프로필 + 통계 3칸 + 채찍질 리포트 + 설정 | ✅ 구현 |
+| 6A | **퀵모드 - 입력** | 채팅 입력 상태 + 노트모드 토글 버튼 + 폴더 셀렉터 | ✅ 구현 |
+| 6B | **퀵모드 - AI응답** | 유저 버블 + AI 구조화 응답 + 노트 카드(저장/수정 버튼) | ✅ 구현 |
+| 7A | **노트모드 - 토글** | 노트 모드 활성화 상태 (블루 필드 토글) | ✅ 구현 |
+| 7B | **노트모드 - Bottomsheet** | 제목/본문/태그/폴더 구조화 입력 폼 + 저장하기 버튼 | ✅ 구현 |
+
+---
+
+## 7. 기술 스택 & 레퍼런스
+
+### 7.1 플랫폼
+
+모바일 앱 (iOS / Android) — Expo + React Native + TypeScript
+
+### 7.2 기술 스택
+
+| 분류 | 기술 |
+| --- | --- |
+| **프레임워크** | Expo ~54, React 19, React Native 0.81 |
+| **스타일** | NativeWind ^4.2.3 (Tailwind CSS for RN) |
+| **상태관리** | Zustand |
+| **내비게이션** | Expo Router (파일 기반) |
+| **AI** | Claude API (claude-sonnet-4-6) |
+| **백엔드** | Supabase (인증 + DB + pgvector) — 미연동 |
+| **테스트** | Jest + jest-expo + @testing-library/react-native |
+
+### 7.3 레퍼런스 앱
+
+| 레퍼런스 | 참고 요소 |
+| --- | --- |
+| **아이폰 내장 메모앱** | 타이틀 + 본문 구조, 폴더 구조, 검색 UX |
+| **Evernote** | 태그 시스템, 노트북 구조 |
+| **필라이즈 (Pillyze)** | 화이트 베이스 + 포인트 컬러, 통계 카드 디자인 |
+| **카카오톡 / 인스타 DM** | 채팅 UI 입력 방식, 버블 스타일 |
+
+### 7.4 AI 기능 요구사항
+
+| AI 기능 | 입력 | 출력 |
+| --- | --- | --- |
+| **아이디어 구조화** | 자유 텍스트 | summary, contentType, tags |
+| **파생 아이디어 ×3** | 텍스트 | context + target + expectedTitle |
+| **제목 공식 3안** | 텍스트 | formula + title (숫자행동결과 / 역발상 / 타겟호명) |
+| **카테고리 추천** | 텍스트 | suggestedCategoryName |
+
+---
+
+## 8. Supabase Schema
 
 ```sql
--- 카테고리 (Default + 사용자 커스텀 통합)
 create table categories (
   id          uuid primary key default gen_random_uuid(),
   user_id     uuid references auth.users not null,
   name        text not null,
   color       text not null default '#6C63FF',
   icon        text not null default '💡',
-  is_default  boolean default false,   -- 앱 제공 기본값 여부
+  is_default  boolean default false,
   sort_order  int default 0,
   created_at  timestamptz default now()
 );
 
--- 아이디어 노트
 create table notes (
   id             uuid primary key default gen_random_uuid(),
   user_id        uuid references auth.users not null,
-
   raw_content    text not null,
   summary        text,
-  content_type   text,                     -- idea|script|reference|hook
+  content_type   text,
   tags           text[],
   title          text,
-
   category_id    uuid references categories(id) on delete set null,
-                                           -- null = 미분류
-
-  derived_ideas  jsonb,   -- [{context, target, expected_title} ×3]
-  title_options  jsonb,   -- [{formula, title} ×3]
-
+  derived_ideas  jsonb,
+  title_options  jsonb,
   embedding      vector(1536),
   scheduled_at   timestamptz,
   created_at     timestamptz default now(),
   updated_at     timestamptz default now()
 );
 
--- 자동 묶음 이력
-create table auto_group_logs (
-  id           uuid primary key default gen_random_uuid(),
-  user_id      uuid references auth.users not null,
-  proposed_at  timestamptz default now(),
-  status       text default 'pending',     -- pending|accepted|modified|rejected
-  clusters     jsonb                        -- [{name, note_ids[], suggested_category_name}]
-);
-
--- 인덱스
 create index on notes using ivfflat (embedding vector_cosine_ops) with (lists = 100);
 create index on notes (user_id, category_id);
 create index on notes (user_id, created_at desc);
-create index on notes (user_id, category_id) where category_id is null; -- 미분류 빠른 조회
 ```
 
 ---
 
-## Success Metrics
+## 9. 성공 지표
+
 | 지표 | 목표 |
-|---|---|
+| --- | --- |
 | 저장 완료까지 | < 5초 |
-| AI 파생 아이디어 생성 | < 3초 (스트리밍) |
+| AI 구조화 응답 | < 3초 |
 | D7 재방문율 | > 45% |
-| 카테고리 커스터마이징 사용률 | > 50% |
-| 자동 묶음 수락률 | > 40% |
+| 폴더 커스터마이징 사용률 | > 50% |
+
+---
+
+## 10. 미구현 (향후 개발)
+
+- 푸시 알림 UI (채찍질 알림 카드)
+- 폴더 삭제 확인 모달
+- 태그 관리 화면
+- 메모 스와이프 액션 (swipe to delete / 상태 변경)
+- 마이크로 애니메이션 및 트랜지션 사양
+- Supabase 연동 (auth + DB + pgvector)
+- Claude API 실 연동 (mock → real)
+- 음성 입력 (STT)
+- 콘텐츠 캘린더 뷰
+
+---
+
+*End of Document*

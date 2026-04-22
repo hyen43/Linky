@@ -23,6 +23,7 @@ interface ChatState {
   sendMessage: (text: string, categoryId?: string | null) => Promise<void>;
   confirmNote: (noteId: string) => void;
   discardNote: (noteId: string) => void;
+  deleteNote: (noteId: string) => void;
   updateNoteTitle: (noteId: string, title: string) => void;
   saveNote: (data: { title: string; content: string; tags: string[]; categoryId?: string | null }) => void;
   toggleRecording: () => void;
@@ -96,6 +97,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     })),
 
   discardNote: (noteId) =>
+    set((s) => ({
+      notes: s.notes.filter((n) => n.id !== noteId),
+      pendingNoteId: s.pendingNoteId === noteId ? null : s.pendingNoteId,
+    })),
+
+  deleteNote: (noteId) =>
     set((s) => ({
       notes: s.notes.filter((n) => n.id !== noteId),
       pendingNoteId: s.pendingNoteId === noteId ? null : s.pendingNoteId,
