@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { ChatMessage, Note } from "../types";
-import { processIdea } from "../lib/claude";
+import { ChatMessage, DerivedIdea, DrillDownResult, Note } from "../types";
+import { drillDownIdea, processIdea } from "../lib/claude";
 import { useCategoryStore } from "./useCategoryStore";
 
 let _msgId = 0;
@@ -19,6 +19,9 @@ interface ChatState {
   pendingNoteId: string | null;
   isTyping: boolean;
   isRecording: boolean;
+  // drill-down: key는 `${noteId}-${ideaIdx}`
+  drillDownResults: Record<string, DrillDownResult>;
+  drillingDownKeys: string[];
 
   sendMessage: (text: string, categoryId?: string | null) => Promise<void>;
   saveNote: (data: {
@@ -29,6 +32,7 @@ interface ChatState {
   }) => void;
   toggleRecording: () => void;
   updateNoteCategory: (noteId: string, categoryId: string | null) => void;
+  drillDown: (noteId: string, ideaIdx: number, idea: DerivedIdea, rawContent: string) => Promise<void>;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -37,6 +41,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   pendingNoteId: null,
   isTyping: false,
   isRecording: false,
+  drillDownResults: {},
+  drillingDownKeys: [],
 
   sendMessage: async (text, categoryId = null) => {
     // 1. 사용자 메시지 즉시 표시
@@ -122,4 +128,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
         n.id === noteId ? { ...n, categoryId, updatedAt: new Date() } : n,
       ),
     })),
+
+  drillDown: async (noteId, ideaIdx, idea, rawContent) => {
+    const key = `${noteId}-${ideaIdx}`;
+    if (get().drillDownResults[key] || get().drillingDownKeys.includes(key)) return;
+
+    set((s) => ({ drillingDownKeys: [...s.drillingDownKeys, key] }));
+    try {
+      const result = await drillDownIdea(idea, rawContent);
+      set((s) => ({
+        drillDownResults: { ...s.drillDownResults, [key]: result },
+        drillingDownKeys: s.drillingDownKeys.filter((k) => k !== key),
+      }));
+    } catch {
+      set((s) => ({ drillingDownKeys: s.drillingDownKeys.filter((k) => k !== key) }));
+    }
+  },
 }));

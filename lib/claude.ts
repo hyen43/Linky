@@ -1,4 +1,4 @@
-import { AIProcessResult, ContentType, DerivedIdea, TitleOption } from "../types";
+import { AIProcessResult, ContentType, DerivedIdea, DrillDownResult, TitleOption } from "../types";
 
 // ─── OpenRouter 설정 ──────────────────────────────────────────────────────────
 //
@@ -9,7 +9,7 @@ import { AIProcessResult, ContentType, DerivedIdea, TitleOption } from "../types
 // 추천: "anthropic/claude-sonnet-4-5" / "anthropic/claude-haiku-4-5" (저렴)
 //
 const OPENROUTER_API_KEY = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY ?? "";
-const MODEL = "anthropic/claude-sonnet-4-5"; // TODO: 원하는 모델로 교체
+const MODEL = "anthropic/claude-haiku-4-5"; // Haiku: sonnet 대비 10배 저렴, 품질 충분
 
 // ─── 시스템 프롬프트 ──────────────────────────────────────────────────────────
 
@@ -260,4 +260,76 @@ function buildTitleOptionsFromMemo({
     { formula: "역발상",         title: `${scene}에서 ${keyword}를 '반대로' 해봤더니…` },
     { formula: "타겟호명",       title: `${keyword} 하다가 ${hook} 경험 있는 사람?` },
   ];
+}
+
+// ─── Drill-Down (파생 아이디어 깊게 파고들기) ────────────────────────────────
+
+const DRILL_DOWN_PROMPT = `당신은 콘텐츠 제작 전문 코치입니다.
+아래 아이디어를 실제로 제작할 수 있도록 구체적인 제작 가이드를 JSON으로 반환하세요.
+다른 텍스트 없이 JSON만 반환하세요:
+{
+  "openingHook": "첫 3초 안에 시청자/독자를 잡는 훅 문장 (한 줄)",
+  "outline": ["1단계 내용", "2단계 내용", "3단계 내용", "4단계 내용"],
+  "thumbnailConcept": "썸네일 방향과 텍스트 제안 (한 줄)",
+  "cta": "마무리 CTA 제안 (한 줄)"
+}
+outline은 3~5단계로 구성하세요.`;
+
+export async function drillDownIdea(
+  idea: DerivedIdea,
+  rawContent: string,
+): Promise<DrillDownResult> {
+  if (!OPENROUTER_API_KEY) {
+    await new Promise((r) => setTimeout(r, 800));
+    return {
+      openingHook: `"${idea.expectedTitle}" — 이 말 한마디로 시작하세요.`,
+      outline: [
+        "1단계: 문제 상황 또는 공감 포인트 제시",
+        "2단계: 핵심 내용 전달 (3가지 이내)",
+        "3단계: 실제 사례나 경험 연결",
+        "4단계: 결론 및 시청자 행동 유도",
+      ],
+      thumbnailConcept: `"${idea.expectedTitle}" + 임팩트 있는 표정 or 장면컷`,
+      cta: "댓글로 여러분의 경험도 공유해주세요!",
+    };
+  }
+  return callDrillDownOpenRouter(idea, rawContent);
+}
+
+async function callDrillDownOpenRouter(
+  idea: DerivedIdea,
+  rawContent: string,
+): Promise<DrillDownResult> {
+  const userMessage = `원본 메모: ${rawContent}\n\n선택한 아이디어:\n- 맥락: ${idea.context}\n- 타겟: ${idea.target}\n- 제목: ${idea.expectedTitle}`;
+
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://linky.app",
+      "X-Title": "Linky",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 500,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: DRILL_DOWN_PROMPT },
+        { role: "user", content: userMessage },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`OpenRouter ${res.status}: ${err}`);
+  }
+
+  const data = await res.json();
+  const content: string = data.choices?.[0]?.message?.content ?? "";
+  if (!content) throw new Error("OpenRouter: 빈 응답");
+
+  const json = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+  return JSON.parse(json) as DrillDownResult;
 }
