@@ -67,6 +67,7 @@ async function callOpenRouter(text: string): Promise<AIProcessResult> {
     },
     body: JSON.stringify({
       model: MODEL,
+      max_tokens: 800,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
@@ -85,7 +86,9 @@ async function callOpenRouter(text: string): Promise<AIProcessResult> {
 
   if (!content) throw new Error("OpenRouter: 빈 응답");
 
-  return JSON.parse(content) as AIProcessResult;
+  // 모델에 따라 ```json ... ``` 코드펜스로 감싸서 오는 경우 제거
+  const json = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+  return JSON.parse(json) as AIProcessResult;
 }
 
 // ─── Mock (API 키 없을 때 폴백) ───────────────────────────────────────────────
