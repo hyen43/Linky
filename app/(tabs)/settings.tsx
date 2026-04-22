@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useCategoryStore } from "../../store/useCategoryStore";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useAppTheme } from "../../lib/theme";
@@ -45,11 +46,19 @@ export default function SettingsScreen() {
   const { colors, isDark } = theme;
   const { categories, addCategory, deleteCategory } = useCategoryStore();
   const { user, signOut } = useAuthStore();
+  const router = useRouter();
 
   const handleSignOut = () => {
     Alert.alert("로그아웃", "정말 로그아웃 할까요?", [
       { text: "취소", style: "cancel" },
-      { text: "로그아웃", style: "destructive", onPress: signOut },
+      {
+        text: "로그아웃",
+        style: "destructive",
+        onPress: async () => {
+          await signOut();
+          router.replace("/login" as never);
+        },
+      },
     ]);
   };
   const [adding, setAdding] = useState(false);

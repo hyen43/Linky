@@ -9,7 +9,7 @@ const genId = () => `cat-${++_idCounter}-${Date.now()}`;
 const buildDefaults = (userId = "local"): Category[] =>
   DEFAULT_CATEGORIES.map((c, i) => ({
     ...c,
-    id: `cat-default-${i}`,
+    id: `cat-${userId}-default-${i}`,
     userId,
     createdAt: new Date(),
   }));
