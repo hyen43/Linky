@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { FlatList, Text, TouchableOpacity, View } from "react-native";
+import { Alert, FlatList, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,7 +7,9 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useCategoryStore } from "../../store/useCategoryStore";
 import { useChatStore } from "../../store/useChatStore";
 import { useAppTheme } from "../../lib/theme";
+import { useDeleteFolder } from "../../lib/api/useFoldersMutation";
 import { IdeaFormSheet, IdeaFormSheetRef } from "../../components/sheet/IdeaFormSheet";
+import { FolderFormSheet, FolderFormSheetRef } from "../../components/sheet/FolderFormSheet";
 import type { Note } from "../../types";
 
 type FilterType = "all" | "recent" | "tag";
@@ -122,7 +124,9 @@ export default function FolderDetailScreen() {
   const { colors } = useAppTheme();
   const { categories } = useCategoryStore();
   const { notes } = useChatStore();
-  const sheetRef = useRef<IdeaFormSheetRef>(null);
+  const deleteFolder = useDeleteFolder();
+  const noteSheetRef = useRef<IdeaFormSheetRef>(null);
+  const folderSheetRef = useRef<FolderFormSheetRef>(null);
   const [filter, setFilter] = useState<FilterType>("all");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
@@ -160,6 +164,46 @@ export default function FolderDetailScreen() {
     filteredNotes = filteredNotes.filter((n) => n.tags.includes(selectedTag));
   }
 
+  const handleMorePress = () => {
+    const isDefault = folder.isDefault;
+    Alert.alert(
+      folder.name,
+      undefined,
+      [
+        {
+          text: "폴더 수정",
+          onPress: () => folderSheetRef.current?.expand(),
+        },
+        ...(isDefault
+          ? []
+          : [
+              {
+                text: "폴더 삭제",
+                style: "destructive" as const,
+                onPress: () => {
+                  Alert.alert(
+                    "폴더 삭제",
+                    `"${folder.name}" 폴더를 삭제할까요?\n폴더 내 메모는 삭제되지 않아요.`,
+                    [
+                      { text: "취소", style: "cancel" },
+                      {
+                        text: "삭제",
+                        style: "destructive",
+                        onPress: () => {
+                          deleteFolder.mutate(id);
+                          router.back();
+                        },
+                      },
+                    ]
+                  );
+                },
+              },
+            ]),
+        { text: "취소", style: "cancel" as const },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
       <StatusBar style="dark" />
@@ -184,7 +228,11 @@ export default function FolderDetailScreen() {
           <Ionicons name="chevron-back" size={18} color={colors.primary} />
           <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "500" }}>탐색</Text>
         </TouchableOpacity>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="더보기">
+        <TouchableOpacity
+          onPress={handleMorePress}
+          accessibilityRole="button"
+          accessibilityLabel="더보기"
+        >
           <Ionicons name="ellipsis-horizontal" size={22} color={colors.textTertiary} />
         </TouchableOpacity>
       </View>
@@ -325,7 +373,7 @@ export default function FolderDetailScreen() {
 
       {/* FAB */}
       <TouchableOpacity
-        onPress={() => sheetRef.current?.expand()}
+        onPress={() => noteSheetRef.current?.expand()}
         style={{
           position: "absolute",
           bottom: 32,
@@ -348,7 +396,8 @@ export default function FolderDetailScreen() {
         <Ionicons name="add" size={26} color="#FFFFFF" />
       </TouchableOpacity>
 
-      <IdeaFormSheet ref={sheetRef} defaultCategoryId={id} />
+      <IdeaFormSheet ref={noteSheetRef} defaultCategoryId={id} />
+      <FolderFormSheet ref={folderSheetRef} editingFolder={folder} />
     </SafeAreaView>
   );
 }

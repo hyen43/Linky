@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useRef } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
+import Swipeable from "react-native-gesture-handler/Swipeable";
 import type { Note } from "../../types";
 import { useAppTheme } from "../../lib/theme";
 
@@ -7,6 +8,7 @@ interface Props {
   note: Note;
   folderName?: string;
   onPress?: () => void;
+  onDelete?: () => void;
 }
 
 function formatTime(date: Date): string {
@@ -17,10 +19,35 @@ function formatTime(date: Date): string {
   });
 }
 
-export const NoteCard: React.FC<Props> = ({ note, folderName = "초안", onPress }) => {
-  const { colors } = useAppTheme();
-
+function RightAction({ onDelete }: { onDelete: () => void }) {
   return (
+    <TouchableOpacity
+      onPress={onDelete}
+      style={{
+        backgroundColor: "#EF4444",
+        justifyContent: "center",
+        alignItems: "center",
+        width: 72,
+        borderRadius: 16,
+        marginBottom: 16,
+        marginLeft: 6,
+      }}
+    >
+      <Text style={{ color: "#FFFFFF", fontSize: 12, fontWeight: "700" }}>삭제</Text>
+    </TouchableOpacity>
+  );
+}
+
+export const NoteCard: React.FC<Props> = ({ note, folderName = "초안", onPress, onDelete }) => {
+  const { colors } = useAppTheme();
+  const swipeRef = useRef<Swipeable>(null);
+
+  const handleDelete = () => {
+    swipeRef.current?.close();
+    onDelete?.();
+  };
+
+  const card = (
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={onPress ? 0.7 : 1}
@@ -82,5 +109,18 @@ export const NoteCard: React.FC<Props> = ({ note, folderName = "초안", onPress
         {formatTime(note.createdAt)}
       </Text>
     </TouchableOpacity>
+  );
+
+  if (!onDelete) return card;
+
+  return (
+    <Swipeable
+      ref={swipeRef}
+      renderRightActions={() => <RightAction onDelete={handleDelete} />}
+      rightThreshold={40}
+      overshootRight={false}
+    >
+      {card}
+    </Swipeable>
   );
 };

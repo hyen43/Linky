@@ -13,7 +13,7 @@ import BottomSheet, {
   BottomSheetTextInput,
 } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
-import { useChatStore } from "../../store/useChatStore";
+import { useSaveNote, useUpdateNote } from "../../lib/api/useNotesMutation";
 import { useCategoryStore } from "../../store/useCategoryStore";
 import { useAppTheme } from "../../lib/theme";
 
@@ -41,8 +41,11 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
     const [tagInput, setTagInput] = useState("");
     const [tags, setTags] = useState<string[]>([]);
     const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-    const { saveNote } = useChatStore();
+    const saveNote = useSaveNote();
+    const updateNote = useUpdateNote();
     const { categories } = useCategoryStore();
+
+    const isEditing = !!editingNote;
 
     useEffect(() => {
       if (editingNote) {
@@ -88,12 +91,24 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
       const finalTags = [...tags];
       if (tagInput.trim()) finalTags.push(tagInput.trim());
 
-      saveNote({
-        title: title.trim() || content.trim().slice(0, 40),
-        content: content.trim(),
-        tags: finalTags,
-        categoryId: selectedCategoryId,
-      });
+      if (isEditing && editingNote) {
+        updateNote.mutate({
+          noteId: editingNote.id,
+          patch: {
+            title: title.trim() || content.trim().slice(0, 40),
+            content: content.trim(),
+            tags: finalTags,
+            categoryId: selectedCategoryId,
+          },
+        });
+      } else {
+        saveNote.mutate({
+          title: title.trim() || content.trim().slice(0, 40),
+          content: content.trim(),
+          tags: finalTags,
+          categoryId: selectedCategoryId,
+        });
+      }
 
       setTitle("");
       setContent("");
@@ -102,7 +117,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
       Keyboard.dismiss();
       (ref as React.RefObject<BottomSheet>)?.current?.close();
       onClose?.();
-    }, [title, content, tags, tagInput, selectedCategoryId]);
+    }, [title, content, tags, tagInput, selectedCategoryId, isEditing, editingNote]);
 
     const renderBackdrop = useCallback(
       (props: any) => (
@@ -163,7 +178,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
                 letterSpacing: -0.4,
               }}
             >
-              📝 노트 작성
+              {isEditing ? "📝 노트 수정" : "📝 노트 작성"}
             </Text>
             <TouchableOpacity
               onPress={handleSave}
@@ -183,7 +198,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
                   letterSpacing: -0.2,
                 }}
               >
-                저장하기
+                {isEditing ? "수정 완료" : "저장하기"}
               </Text>
             </TouchableOpacity>
           </View>

@@ -1,12 +1,13 @@
-import React, { forwardRef, useCallback, useState } from "react";
+import React, { forwardRef, useCallback, useEffect, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
   BottomSheetTextInput,
 } from "@gorhom/bottom-sheet";
-import { useCategoryStore } from "../../store/useCategoryStore";
+import { useUpdateFolder, useCreateFolder } from "../../lib/api/useFoldersMutation";
 import { useAppTheme } from "../../lib/theme";
+import type { Category } from "../../types";
 
 const PRESET_EMOJIS = [
   "📁", "🎥", "✍️", "📸", "🎙️", "📚", "💡", "🌟",
@@ -20,29 +21,59 @@ const PRESET_COLORS = [
 
 interface Props {
   onClose?: () => void;
+  editingFolder?: Category | null;
 }
 
 export type FolderFormSheetRef = BottomSheet;
 
 export const FolderFormSheet = forwardRef<FolderFormSheetRef, Props>(
-  ({ onClose }, ref) => {
+  ({ onClose, editingFolder }, ref) => {
     const { colors } = useAppTheme();
-    const { addCategory } = useCategoryStore();
+    const createFolder = useCreateFolder();
+    const updateFolder = useUpdateFolder();
+
     const [name, setName] = useState("");
     const [selectedEmoji, setSelectedEmoji] = useState("📁");
     const [selectedColor, setSelectedColor] = useState("#1A6DFF");
 
+    const isEditing = !!editingFolder;
+
+    useEffect(() => {
+      if (editingFolder) {
+        setName(editingFolder.name);
+        setSelectedEmoji(editingFolder.icon);
+        setSelectedColor(editingFolder.color);
+      } else {
+        setName("");
+        setSelectedEmoji("📁");
+        setSelectedColor("#1A6DFF");
+      }
+    }, [editingFolder?.id]);
+
     const canSave = name.trim().length > 0;
 
-    const handleSave = useCallback(() => {
-      if (!canSave) return;
-      addCategory({ name: name.trim(), icon: selectedEmoji, color: selectedColor });
+    const reset = () => {
       setName("");
       setSelectedEmoji("📁");
       setSelectedColor("#1A6DFF");
+    };
+
+    const handleSave = useCallback(() => {
+      if (!canSave) return;
+
+      if (isEditing && editingFolder) {
+        updateFolder.mutate({
+          id: editingFolder.id,
+          patch: { name: name.trim(), icon: selectedEmoji, color: selectedColor },
+        });
+      } else {
+        createFolder.mutate({ name: name.trim(), icon: selectedEmoji, color: selectedColor });
+      }
+
+      reset();
       (ref as React.RefObject<BottomSheet>)?.current?.close();
       onClose?.();
-    }, [name, selectedEmoji, selectedColor, canSave]);
+    }, [name, selectedEmoji, selectedColor, canSave, isEditing, editingFolder]);
 
     const renderBackdrop = useCallback(
       (props: any) => (
@@ -92,7 +123,7 @@ export const FolderFormSheet = forwardRef<FolderFormSheetRef, Props>(
                 letterSpacing: -0.4,
               }}
             >
-              새 폴더
+              {isEditing ? "폴더 수정" : "새 폴더"}
             </Text>
             <TouchableOpacity
               onPress={handleSave}
@@ -111,7 +142,7 @@ export const FolderFormSheet = forwardRef<FolderFormSheetRef, Props>(
                   fontWeight: "700",
                 }}
               >
-                만들기
+                {isEditing ? "수정 완료" : "만들기"}
               </Text>
             </TouchableOpacity>
           </View>

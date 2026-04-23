@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Alert,
   ScrollView,
@@ -13,13 +13,18 @@ import { Ionicons } from "@expo/vector-icons";
 import { useChatStore } from "../../store/useChatStore";
 import { useCategoryStore } from "../../store/useCategoryStore";
 import { useAppTheme } from "../../lib/theme";
+import { useDeleteNote, useUpdateNoteCategory } from "../../lib/api/useNotesMutation";
+import { IdeaFormSheet, IdeaFormSheetRef } from "../../components/sheet/IdeaFormSheet";
 import type { TitleOption } from "../../types";
 
 export default function NoteDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useAppTheme();
-  const { notes, updateNoteTitle, updateNoteCategory } = useChatStore();
+  const { notes, updateNoteTitle } = useChatStore();
   const { categories } = useCategoryStore();
+  const deleteNote = useDeleteNote();
+  const updateCategory = useUpdateNoteCategory();
+  const sheetRef = useRef<IdeaFormSheetRef>(null);
   const [selectedTitleIdx, setSelectedTitleIdx] = useState<number | null>(null);
 
   const note = notes.find((n) => n.id === id);
@@ -38,20 +43,32 @@ export default function NoteDetailScreen() {
   const folder = categories.find((c) => c.id === note.categoryId);
   const folderName = folder?.name ?? "초안";
 
-  const formattedDate = note.createdAt.toLocaleDateString("ko-KR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).replace(/\. /g, ".").replace(/\.$/, "");
+  const formattedDate = note.createdAt
+    .toLocaleDateString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit" })
+    .replace(/\. /g, ".")
+    .replace(/\.$/, "");
 
   const handleStatusChange = () => {
-    const options = categories.map((c) => c.name);
-    Alert.alert("상태 변경", "이동할 폴더를 선택해주세요", [
+    Alert.alert("폴더 이동", "이동할 폴더를 선택해주세요", [
       ...categories.map((c) => ({
-        text: c.name,
-        onPress: () => updateNoteCategory(note.id, c.id),
+        text: `${c.icon} ${c.name}`,
+        onPress: () => updateCategory.mutate({ noteId: note.id, categoryId: c.id }),
       })),
+      { text: "취소", style: "cancel" as const },
+    ]);
+  };
+
+  const handleDelete = () => {
+    Alert.alert("메모 삭제", "정말 삭제할까요? 이 작업은 되돌릴 수 없어요.", [
       { text: "취소", style: "cancel" },
+      {
+        text: "삭제",
+        style: "destructive",
+        onPress: () => {
+          deleteNote.mutate(note.id);
+          router.back();
+        },
+      },
     ]);
   };
 
@@ -60,13 +77,11 @@ export default function NoteDetailScreen() {
     updateNoteTitle(note.id, option.title);
   };
 
-  const hasAIData = note.derivedIdeas.length > 0 || note.titleOptions.length > 0;
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
       <StatusBar style="dark" />
 
-      {/* 헤더 내비게이션 */}
+      {/* 헤더 */}
       <View
         style={{
           flexDirection: "row",
@@ -88,11 +103,19 @@ export default function NoteDetailScreen() {
         </TouchableOpacity>
 
         <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="편집">
+          <TouchableOpacity
+            onPress={() => sheetRef.current?.expand()}
+            accessibilityRole="button"
+            accessibilityLabel="편집"
+          >
             <Ionicons name="pencil-outline" size={20} color={colors.textTertiary} />
           </TouchableOpacity>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="더보기">
-            <Ionicons name="ellipsis-vertical" size={20} color={colors.textTertiary} />
+          <TouchableOpacity
+            onPress={handleDelete}
+            accessibilityRole="button"
+            accessibilityLabel="삭제"
+          >
+            <Ionicons name="trash-outline" size={20} color="#EF4444" />
           </TouchableOpacity>
         </View>
       </View>
@@ -114,7 +137,7 @@ export default function NoteDetailScreen() {
             {note.title}
           </Text>
 
-          {/* 상태 배지 + 날짜 + 상태 변경 */}
+          {/* 상태 배지 + 날짜 + 폴더 이동 */}
           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12, gap: 8 }}>
             <View
               style={{
@@ -131,7 +154,7 @@ export default function NoteDetailScreen() {
             <Text style={{ fontSize: 12, color: colors.textTertiary }}>{formattedDate}</Text>
             <TouchableOpacity onPress={handleStatusChange}>
               <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "600" }}>
-                상태 변경
+                폴더 이동
               </Text>
             </TouchableOpacity>
           </View>
@@ -235,7 +258,8 @@ export default function NoteDetailScreen() {
               </Text>
               <View style={{ gap: 8 }}>
                 {note.titleOptions.map((option, idx) => {
-                  const isSelected = selectedTitleIdx === idx ||
+                  const isSelected =
+                    selectedTitleIdx === idx ||
                     (selectedTitleIdx === null && note.title === option.title);
                   return (
                     <View
@@ -286,6 +310,17 @@ export default function NoteDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      <IdeaFormSheet
+        ref={sheetRef}
+        editingNote={{
+          id: note.id,
+          title: note.title,
+          content: note.rawContent,
+          tags: note.tags,
+          categoryId: note.categoryId,
+        }}
+      />
     </SafeAreaView>
   );
 }
