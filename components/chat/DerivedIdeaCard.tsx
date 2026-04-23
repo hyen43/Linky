@@ -1,6 +1,7 @@
 import React from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import type { DerivedIdea, DrillDownResult } from "../../types";
+import { useAppTheme } from "../../lib/theme";
 
 interface Props {
   ideas: DerivedIdea[];
@@ -21,11 +22,16 @@ export const DerivedIdeaCard: React.FC<Props> = ({
   drillDownResults,
   drillingDownKeys,
 }) => {
+  const { colors } = useAppTheme();
+
   return (
-    <View className="mb-3 max-w-[88%]">
-      <View className="mb-2 flex-row items-center pl-1" style={{ gap: 6 }}>
-        <View className="h-1.5 w-1.5 rounded-full bg-primary" />
-        <Text className="text-xs font-semibold text-textMuted">파생 아이디어</Text>
+    <View style={{ marginBottom: 12, maxWidth: "88%" }}>
+      {/* 섹션 헤더 */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8, paddingLeft: 4 }}>
+        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary }} />
+        <Text style={{ color: colors.textTertiary, fontSize: 11, fontWeight: "600", letterSpacing: 0.4 }}>
+          파생 아이디어
+        </Text>
       </View>
 
       {ideas.map((idea, idx) => {
@@ -34,22 +40,53 @@ export const DerivedIdeaCard: React.FC<Props> = ({
         const result = drillDownResults[key];
 
         return (
-          <View key={idx} className="mb-2 rounded-2xl bg-surface2 p-4" testID={`derived-idea-${idx}`}>
-            {/* Card header */}
-            <View className="mb-3 flex-row items-center" style={{ gap: 8 }}>
-              <View className="h-6 w-6 items-center justify-center rounded-full bg-primary/20">
-                <Text className="text-xs font-bold text-primary">{idx + 1}</Text>
+          <View
+            key={idx}
+            testID={`derived-idea-${idx}`}
+            style={{
+              marginBottom: 8,
+              borderRadius: 16,
+              backgroundColor: colors.surfaceElevated,
+              padding: 14,
+              borderWidth: 1,
+              borderColor: colors.border,
+              gap: 10,
+            }}
+          >
+            {/* 카드 헤더 */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <View
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 11,
+                  backgroundColor: colors.primarySoft,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "700" }}>{idx + 1}</Text>
               </View>
-              <Text className="text-xs font-semibold text-primary">아이디어 {idx + 1}</Text>
+              <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "600" }}>
+                아이디어 {idx + 1}
+              </Text>
             </View>
 
-            {/* Fields */}
-            <View style={{ gap: 8 }}>
+            {/* 필드 */}
+            <View style={{ gap: 6 }}>
               {[idea.context, idea.target, idea.expectedTitle].map((val, i) => (
-                <View key={i} className="flex-row">
-                  <Text className="w-12 text-xs text-textMuted">{ROW_LABELS[i]}</Text>
+                <View key={i} style={{ flexDirection: "row", gap: 8 }}>
+                  <Text style={{ width: 36, fontSize: 12, color: colors.textTertiary }}>
+                    {ROW_LABELS[i]}
+                  </Text>
                   <Text
-                    className={`flex-1 text-xs leading-[18px] ${i === 2 ? "font-semibold" : ""} text-white`}
+                    style={{
+                      flex: 1,
+                      fontSize: 13,
+                      lineHeight: 19,
+                      color: i === 2 ? colors.text : colors.textSecondary,
+                      fontWeight: i === 2 ? "600" : "400",
+                    }}
                   >
                     {val}
                   </Text>
@@ -57,48 +94,68 @@ export const DerivedIdeaCard: React.FC<Props> = ({
               ))}
             </View>
 
-            {/* Drill-down result */}
+            {/* 드릴다운 결과 */}
             {result && (
-              <View className="mt-4 rounded-xl border border-primary/20 p-3" style={{ gap: 10 }}>
-                <View className="flex-row items-center" style={{ gap: 6 }}>
-                  <Text className="text-xs font-bold text-primary">🔍 제작 가이드</Text>
-                </View>
-
-                <View style={{ gap: 4 }}>
-                  <Text className="text-xs font-semibold text-textMuted">오프닝 훅</Text>
-                  <Text className="text-xs leading-[18px] text-white">{result.openingHook}</Text>
-                </View>
-
-                <View style={{ gap: 4 }}>
-                  <Text className="text-xs font-semibold text-textMuted">콘텐츠 구조</Text>
+              <View
+                style={{
+                  marginTop: 2,
+                  padding: 12,
+                  borderRadius: 12,
+                  backgroundColor: colors.primarySoft,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  gap: 8,
+                }}
+              >
+                <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "700" }}>
+                  🔍 제작 가이드
+                </Text>
+                {[
+                  { label: "오프닝 훅", value: result.openingHook },
+                  { label: "썸네일", value: result.thumbnailConcept },
+                  { label: "마무리 CTA", value: result.cta },
+                ].map(({ label, value }) => (
+                  <View key={label} style={{ gap: 2 }}>
+                    <Text style={{ color: colors.textTertiary, fontSize: 10, fontWeight: "600", letterSpacing: 0.4 }}>
+                      {label.toUpperCase()}
+                    </Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 18 }}>
+                      {value}
+                    </Text>
+                  </View>
+                ))}
+                <View style={{ gap: 2 }}>
+                  <Text style={{ color: colors.textTertiary, fontSize: 10, fontWeight: "600", letterSpacing: 0.4 }}>
+                    콘텐츠 구조
+                  </Text>
                   {result.outline.map((step, i) => (
-                    <Text key={i} className="text-xs leading-[18px] text-white">
+                    <Text key={i} style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 18 }}>
                       {step}
                     </Text>
                   ))}
                 </View>
-
-                <View style={{ gap: 4 }}>
-                  <Text className="text-xs font-semibold text-textMuted">썸네일</Text>
-                  <Text className="text-xs leading-[18px] text-white">{result.thumbnailConcept}</Text>
-                </View>
-
-                <View style={{ gap: 4 }}>
-                  <Text className="text-xs font-semibold text-textMuted">마무리 CTA</Text>
-                  <Text className="text-xs leading-[18px] text-white">{result.cta}</Text>
-                </View>
               </View>
             )}
 
-            {/* Action buttons */}
-            <View className="mt-3 flex-row" style={{ gap: 8 }}>
+            {/* 액션 버튼 */}
+            <View style={{ flexDirection: "row", gap: 8, marginTop: 2 }}>
               <TouchableOpacity
                 onPress={() => onSave(idea)}
                 accessibilityRole="button"
                 accessibilityLabel={`파생 아이디어 ${idx + 1} 저장`}
-                className="flex-1 items-center rounded-xl border border-primary/30 py-2"
+                style={{
+                  flex: 1,
+                  alignItems: "center",
+                  paddingVertical: 9,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.surface,
+                }}
               >
-                <Text className="text-xs font-semibold text-primary">저장하기</Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: "600" }}>
+                  저장하기
+                </Text>
               </TouchableOpacity>
 
               {!result && (
@@ -107,12 +164,20 @@ export const DerivedIdeaCard: React.FC<Props> = ({
                   disabled={isLoading}
                   accessibilityRole="button"
                   accessibilityLabel={`아이디어 ${idx + 1} 더 파고들기`}
-                  className="flex-1 items-center rounded-xl bg-primary/20 py-2"
+                  style={{
+                    flex: 1,
+                    alignItems: "center",
+                    paddingVertical: 9,
+                    borderRadius: 12,
+                    backgroundColor: colors.primarySoft,
+                  }}
                 >
                   {isLoading ? (
-                    <ActivityIndicator size="small" color="#6C63FF" />
+                    <ActivityIndicator size="small" color={colors.primary} />
                   ) : (
-                    <Text className="text-xs font-semibold text-primary">더 파고들기</Text>
+                    <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "600" }}>
+                      더 파고들기
+                    </Text>
                   )}
                 </TouchableOpacity>
               )}
