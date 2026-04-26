@@ -1,6 +1,6 @@
 import React, { useRef } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
-import Swipeable from "react-native-gesture-handler/Swipeable";
+import ReanimatedSwipeable, { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import type { Note } from "../../types";
 import { useAppTheme } from "../../lib/theme";
 
@@ -40,7 +40,7 @@ function RightAction({ onDelete }: { onDelete: () => void }) {
 
 export const NoteCard: React.FC<Props> = ({ note, folderName = "초안", onPress, onDelete }) => {
   const { colors } = useAppTheme();
-  const swipeRef = useRef<Swipeable>(null);
+  const swipeRef = useRef<SwipeableMethods>(null);
 
   const handleDelete = () => {
     swipeRef.current?.close();
@@ -114,13 +114,13 @@ export const NoteCard: React.FC<Props> = ({ note, folderName = "초안", onPress
   if (!onDelete) return card;
 
   return (
-    <Swipeable
+    <ReanimatedSwipeable
       ref={swipeRef}
       renderRightActions={() => <RightAction onDelete={handleDelete} />}
       rightThreshold={40}
       overshootRight={false}
     >
       {card}
-    </Swipeable>
+    </ReanimatedSwipeable>
   );
 };

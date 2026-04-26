@@ -9,7 +9,7 @@ import { NoteCard } from "../../components/chat/NoteCard";
 import { AIStructureCard } from "../../components/chat/AIStructureCard";
 import { TypingIndicator } from "../../components/chat/TypingIndicator";
 import { InputBar } from "../../components/chat/InputBar";
-import { IdeaFormSheet, IdeaFormSheetRef } from "../../components/sheet/IdeaFormSheet";
+import { IdeaFormSheet, IdeaFormSheetRef, EditingNote } from "../../components/sheet/IdeaFormSheet";
 import { useChatStore } from "../../store/useChatStore";
 import { useCategoryStore } from "../../store/useCategoryStore";
 import { useDeleteNote } from "../../lib/api/useNotesMutation";
@@ -22,12 +22,6 @@ type ListItem =
   | { kind: "pending"; data: Note }
   | { kind: "divider"; label: string; id: string };
 
-interface EditingNote {
-  id: string;
-  title: string;
-  content: string;
-  tags: string[];
-}
 
 function getDateLabel(date: Date): string {
   const today = new Date();
@@ -152,7 +146,7 @@ function EmptyStateHint() {
 
 export default function NoteScreen() {
   const { colors } = useAppTheme();
-  const { messages, notes, isTyping, sendMessage, confirmNote, discardNote } = useChatStore();
+  const { messages, notes, isTyping, sendMessage, confirmNote } = useChatStore();
   const { categories } = useCategoryStore();
   const deleteNote = useDeleteNote();
   const listRef = useRef<FlatList>(null);
@@ -171,12 +165,12 @@ export default function NoteScreen() {
   };
 
   const handleEdit = (note: Note) => {
-    discardNote(note.id);
     setEditingNote({
       id: note.id,
       title: note.title,
       content: note.rawContent,
       tags: note.tags,
+      categoryId: note.categoryId,
     });
     sheetRef.current?.expand();
   };
@@ -293,6 +287,7 @@ export default function NoteScreen() {
       <IdeaFormSheet
         ref={sheetRef}
         onClose={() => setEditingNote(null)}
+        onSaved={(noteId) => confirmNote(noteId)}
         editingNote={editingNote}
         defaultCategoryId={selectedCategoryId}
       />

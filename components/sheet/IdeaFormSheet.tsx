@@ -27,6 +27,7 @@ export interface EditingNote {
 
 interface Props {
   onClose?: () => void;
+  onSaved?: (noteId: string) => void;
   editingNote?: EditingNote | null;
   defaultCategoryId?: string | null;
 }
@@ -34,7 +35,7 @@ interface Props {
 export type IdeaFormSheetRef = BottomSheet;
 
 export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
-  ({ onClose, editingNote, defaultCategoryId }, ref) => {
+  ({ onClose, onSaved, editingNote, defaultCategoryId }, ref) => {
     const { colors } = useAppTheme();
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
@@ -101,6 +102,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
             categoryId: selectedCategoryId,
           },
         });
+        onSaved?.(editingNote.id);
       } else {
         saveNote.mutate({
           title: title.trim() || content.trim().slice(0, 40),
