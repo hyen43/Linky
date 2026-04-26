@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useRef, useState, useCallback, useMemo } from "react";
 import {
+  Dimensions,
   ScrollView,
   Text,
   TextInput,
@@ -8,128 +9,445 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  runOnJS,
+  type SharedValue,
+} from "react-native-reanimated";
 import { useCategoryStore } from "../../store/useCategoryStore";
 import { useChatStore } from "../../store/useChatStore";
 import { useAppTheme } from "../../lib/theme";
-import type { Note } from "../../types";
+import {
+  FolderFormSheet,
+  FolderFormSheetRef,
+} from "../../components/sheet/FolderFormSheet";
+import type { Note, Category } from "../../types";
 
-const FOLDER_BG: Record<string, string> = {
-  초안: "#F0F0F5",
-  제작중: "#FFF3E0",
-  완료: "#E8F5E9",
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const COLUMN_WIDTH = Math.min(230, SCREEN_WIDTH * 0.65);
+const COLUMN_GAP = 12;
+const BOARD_PADDING = 20;
+
+const COLUMN_COLORS: Record<string, string> = {
+  초안: "#F4F4F8",
+  제작중: "#FFF8F0",
+  완료: "#F0FBF4",
 };
 
-function FolderRow({
-  icon,
-  name,
-  count,
-  iconBg,
-  onPress,
-}: {
-  icon: string;
-  name: string;
-  count: number;
-  iconBg: string;
-  onPress?: () => void;
-}) {
-  const { colors } = useAppTheme();
+// ─── Floating card (drag overlay) ────────────────────────────────────────────
 
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.7}
-      style={{ flexDirection: "row", alignItems: "center", paddingVertical: 12 }}
-    >
-      <View
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 12,
-          backgroundColor: iconBg,
-          alignItems: "center",
-          justifyContent: "center",
-          marginRight: 12,
-        }}
-      >
-        <Text style={{ fontSize: 18 }}>{icon}</Text>
-      </View>
-      <Text style={{ flex: 1, fontSize: 16, fontWeight: "600", color: colors.text }}>
-        {name}
-      </Text>
-      <Text style={{ fontSize: 14, color: colors.textTertiary, fontWeight: "500" }}>{count}</Text>
-    </TouchableOpacity>
-  );
+interface FloatingCardProps {
+  note: Note;
+  dragX: SharedValue<number>;
+  dragY: SharedValue<number>;
+  cardWidth: number;
 }
 
-function NoteCardSmall({ note }: { note: Note }) {
+function FloatingCard({ note, dragX, dragY, cardWidth }: FloatingCardProps) {
   const { colors } = useAppTheme();
-
-  const formattedDate = note.createdAt.toLocaleDateString("ko-KR", {
-    month: "numeric",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: dragX.value }, { translateY: dragY.value }],
+  }));
 
   return (
-    <View
-      style={{
-        backgroundColor: colors.surface,
-        borderRadius: 14,
-        borderWidth: 0.5,
-        borderColor: colors.border,
-        padding: 16,
-        marginBottom: 10,
-      }}
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        {
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: cardWidth,
+          zIndex: 9999,
+          backgroundColor: colors.surface,
+          borderRadius: 14,
+          borderWidth: 1,
+          borderColor: colors.primary,
+          padding: 12,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.18,
+          shadowRadius: 14,
+          elevation: 12,
+        },
+        animStyle,
+      ]}
     >
       <Text
-        style={{ fontSize: 15, fontWeight: "600", color: colors.text, marginBottom: 6 }}
-        numberOfLines={1}
+        style={{
+          fontSize: 14,
+          fontWeight: "600",
+          color: colors.text,
+          letterSpacing: -0.2,
+          marginBottom: 4,
+        }}
+        numberOfLines={2}
       >
         {note.title}
       </Text>
       {note.rawContent.trim().length > 0 && (
         <Text
-          style={{ fontSize: 13, color: colors.textTertiary, lineHeight: 20, marginBottom: 8 }}
+          style={{ fontSize: 12, color: colors.textTertiary, lineHeight: 18 }}
           numberOfLines={2}
         >
           {note.rawContent}
         </Text>
       )}
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, flex: 1 }}>
+      {note.tags.length > 0 && (
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
           {note.tags.slice(0, 2).map((tag) => (
             <View
               key={tag}
               style={{
                 backgroundColor: colors.primarySoft,
-                borderRadius: 10,
-                paddingHorizontal: 8,
+                borderRadius: 8,
+                paddingHorizontal: 6,
                 paddingVertical: 2,
               }}
             >
-              <Text style={{ color: colors.primary, fontSize: 10, fontWeight: "500" }}>#{tag}</Text>
+              <Text style={{ color: colors.primary, fontSize: 10, fontWeight: "500" }}>
+                #{tag}
+              </Text>
             </View>
           ))}
         </View>
-        <Text style={{ fontSize: 11, color: colors.textTertiary }}>{formattedDate}</Text>
+      )}
+    </Animated.View>
+  );
+}
+
+// ─── Kanban card ──────────────────────────────────────────────────────────────
+
+interface KanbanCardProps {
+  note: Note;
+  isDraggingThis: boolean;
+  dragX: SharedValue<number>;
+  dragY: SharedValue<number>;
+  onDragStart: (note: Note, ox: number, oy: number, w: number, h: number) => void;
+  onDrop: (cardX: number, cardY: number) => void;
+  onDragCancel: () => void;
+}
+
+function KanbanCard({
+  note,
+  isDraggingThis,
+  dragX,
+  dragY,
+  onDragStart,
+  onDrop,
+  onDragCancel,
+}: KanbanCardProps) {
+  const { colors } = useAppTheme();
+  const originX = useSharedValue(0);
+  const originY = useSharedValue(0);
+  const cardW = useSharedValue(COLUMN_WIDTH - 24);
+  const cardH = useSharedValue(80);
+
+  const navigate = useCallback(() => {
+    router.push(`/note/${note.id}`);
+  }, [note.id]);
+
+  const notifyDragStart = useCallback(
+    (ox: number, oy: number, w: number, h: number) => {
+      onDragStart(note, ox, oy, w, h);
+    },
+    [note, onDragStart]
+  );
+
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .activateAfterLongPress(400)
+        .onBegin((e) => {
+          originX.value = e.absoluteX - e.x;
+          originY.value = e.absoluteY - e.y;
+        })
+        .onStart(() => {
+          dragX.value = originX.value;
+          dragY.value = originY.value;
+          runOnJS(notifyDragStart)(
+            originX.value,
+            originY.value,
+            cardW.value,
+            cardH.value
+          );
+        })
+        .onUpdate((e) => {
+          dragX.value = originX.value + e.translationX;
+          dragY.value = originY.value + e.translationY;
+        })
+        .onEnd(() => {
+          runOnJS(onDrop)(dragX.value, dragY.value);
+        })
+        .onFinalize(() => {
+          runOnJS(onDragCancel)();
+        }),
+    [notifyDragStart, onDrop, onDragCancel]
+  );
+
+  const tapGesture = useMemo(
+    () =>
+      Gesture.Tap().onEnd(() => {
+        runOnJS(navigate)();
+      }),
+    [navigate]
+  );
+
+  const composed = useMemo(
+    () => Gesture.Race(tapGesture, panGesture),
+    [tapGesture, panGesture]
+  );
+
+  return (
+    <GestureDetector gesture={composed}>
+      <Animated.View
+        onLayout={(e) => {
+          cardW.value = e.nativeEvent.layout.width;
+          cardH.value = e.nativeEvent.layout.height;
+        }}
+        style={{
+          backgroundColor: colors.surface,
+          borderRadius: 14,
+          borderWidth: 0.5,
+          borderColor: colors.border,
+          padding: 12,
+          marginBottom: 8,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.04,
+          shadowRadius: 4,
+          elevation: 1,
+          opacity: isDraggingThis ? 0 : 1,
+        }}
+      >
+        <Text
+          style={{
+            fontSize: 14,
+            fontWeight: "600",
+            color: colors.text,
+            letterSpacing: -0.2,
+            marginBottom: 4,
+          }}
+          numberOfLines={2}
+        >
+          {note.title}
+        </Text>
+
+        {note.rawContent.trim().length > 0 && (
+          <Text
+            style={{
+              fontSize: 12,
+              color: colors.textTertiary,
+              lineHeight: 18,
+              marginBottom: 8,
+            }}
+            numberOfLines={3}
+          >
+            {note.rawContent}
+          </Text>
+        )}
+
+        {note.tags.length > 0 && (
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginBottom: 6 }}>
+            {note.tags.slice(0, 2).map((tag) => (
+              <View
+                key={tag}
+                style={{
+                  backgroundColor: colors.primarySoft,
+                  borderRadius: 8,
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                }}
+              >
+                <Text style={{ color: colors.primary, fontSize: 10, fontWeight: "500" }}>
+                  #{tag}
+                </Text>
+              </View>
+            ))}
+            {note.tags.length > 2 && (
+              <Text style={{ fontSize: 10, color: colors.textTertiary, alignSelf: "center" }}>
+                +{note.tags.length - 2}
+              </Text>
+            )}
+          </View>
+        )}
+
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Text style={{ fontSize: 10, color: colors.textTertiary }}>
+            {note.createdAt.toLocaleDateString("ko-KR", {
+              month: "numeric",
+              day: "numeric",
+            })}
+          </Text>
+          <Ionicons name="reorder-three-outline" size={14} color={colors.textTertiary} />
+        </View>
+      </Animated.View>
+    </GestureDetector>
+  );
+}
+
+// ─── Kanban column ────────────────────────────────────────────────────────────
+
+interface KanbanColumnProps {
+  category: Category;
+  notes: Note[];
+  draggingNoteId: string | null;
+  isDragging: boolean;
+  dragX: SharedValue<number>;
+  dragY: SharedValue<number>;
+  onDragStart: (note: Note, ox: number, oy: number, w: number, h: number) => void;
+  onDrop: (cardX: number, cardY: number) => void;
+  onDragCancel: () => void;
+  boardHeight: number;
+}
+
+function KanbanColumn({
+  category,
+  notes,
+  draggingNoteId,
+  isDragging,
+  dragX,
+  dragY,
+  onDragStart,
+  onDrop,
+  onDragCancel,
+  boardHeight,
+}: KanbanColumnProps) {
+  const { colors } = useAppTheme();
+  const colBg = COLUMN_COLORS[category.name] ?? colors.surfaceElevated;
+
+  return (
+    <View
+      style={{
+        width: COLUMN_WIDTH,
+        height: boardHeight,
+        backgroundColor: colBg,
+        borderRadius: 18,
+        padding: 12,
+        borderWidth: 0.5,
+        borderColor: colors.border,
+      }}
+    >
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 12,
+          paddingBottom: 10,
+          borderBottomWidth: 0.5,
+          borderBottomColor: colors.border,
+        }}
+      >
+        <Text style={{ fontSize: 18 }}>{category.icon}</Text>
+        <Text
+          style={{
+            flex: 1,
+            fontSize: 14,
+            fontWeight: "700",
+            color: colors.text,
+            letterSpacing: -0.3,
+          }}
+        >
+          {category.name}
+        </Text>
+        <View
+          style={{
+            backgroundColor: colors.surface,
+            borderRadius: 10,
+            paddingHorizontal: 8,
+            paddingVertical: 2,
+            borderWidth: 0.5,
+            borderColor: colors.border,
+          }}
+        >
+          <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: "600" }}>
+            {notes.length}
+          </Text>
+        </View>
       </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        nestedScrollEnabled
+        scrollEnabled={!isDragging}
+        contentContainerStyle={{ paddingBottom: 8 }}
+      >
+        {notes.length === 0 ? (
+          <View
+            style={{
+              borderWidth: 1.5,
+              borderStyle: "dashed",
+              borderColor: colors.border,
+              borderRadius: 12,
+              paddingVertical: 28,
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <Text style={{ fontSize: 20 }}>✦</Text>
+            <Text style={{ fontSize: 11, color: colors.textTertiary }}>비어있어요</Text>
+          </View>
+        ) : (
+          notes.map((note) => (
+            <KanbanCard
+              key={note.id}
+              note={note}
+              isDraggingThis={draggingNoteId === note.id}
+              dragX={dragX}
+              dragY={dragY}
+              onDragStart={onDragStart}
+              onDrop={onDrop}
+              onDragCancel={onDragCancel}
+            />
+          ))
+        )}
+      </ScrollView>
     </View>
   );
 }
 
+// ─── Board screen ─────────────────────────────────────────────────────────────
+
 export default function BoardScreen() {
   const { colors } = useAppTheme();
   const { categories } = useCategoryStore();
-  const { notes } = useChatStore();
+  const { notes, updateNoteCategory } = useChatStore();
+  const folderSheetRef = useRef<FolderFormSheetRef>(null);
   const [query, setQuery] = useState("");
+  const [boardHeight, setBoardHeight] = useState(480);
 
-  const defaultFolders = categories.filter((c) => c.isDefault);
-  const customFolders = categories.filter((c) => !c.isDefault);
+  // Drag state
+  const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
+  const [draggingNote, setDraggingNote] = useState<Note | null>(null);
+  const [dragCardWidth, setDragCardWidth] = useState(COLUMN_WIDTH - 24);
+  const draggingNoteRef = useRef<Note | null>(null);
+  const dragCardWidthRef = useRef(COLUMN_WIDTH - 24);
+  const dragX = useSharedValue(0);
+  const dragY = useSharedValue(0);
+
+  // Horizontal scroll tracking for drop detection
+  const hScrollRef = useRef<ScrollView>(null);
+  const scrollViewScreenX = useRef(0);
+  const scrollOffset = useRef(0);
+
+  const categoriesRef = useRef(categories);
+  categoriesRef.current = categories;
+
+  const confirmedNotes = notes.filter((n) => n.confirmed !== false);
 
   const filteredNotes = query.trim()
-    ? notes.filter((n) => {
+    ? confirmedNotes.filter((n) => {
         const q = query.toLowerCase();
         return (
           n.title.toLowerCase().includes(q) ||
@@ -137,155 +455,198 @@ export default function BoardScreen() {
           n.tags.some((t) => t.toLowerCase().includes(q))
         );
       })
-    : notes;
+    : confirmedNotes;
 
-  const recentNotes = [...filteredNotes]
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    .slice(0, 10);
+  const notesFor = (categoryId: string) =>
+    filteredNotes
+      .filter((n) => n.categoryId === categoryId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-  const countFor = (categoryId: string) =>
-    notes.filter((n) => n.categoryId === categoryId).length;
+  const handleDragStart = useCallback(
+    (note: Note, _ox: number, _oy: number, w: number, _h: number) => {
+      draggingNoteRef.current = note;
+      dragCardWidthRef.current = w;
+      setDraggingNote(note);
+      setDraggingNoteId(note.id);
+      setDragCardWidth(w);
+    },
+    []
+  );
+
+  const cleanupDrag = useCallback(() => {
+    if (draggingNoteRef.current === null) return;
+    draggingNoteRef.current = null;
+    setDraggingNote(null);
+    setDraggingNoteId(null);
+  }, []);
+
+  const handleDrop = useCallback(
+    (cardX: number, _cardY: number) => {
+      const note = draggingNoteRef.current;
+      if (note) {
+        const centerX = cardX + dragCardWidthRef.current / 2;
+        const contentX = centerX - scrollViewScreenX.current + scrollOffset.current;
+        const colIdx = Math.floor(
+          (contentX - BOARD_PADDING) / (COLUMN_WIDTH + COLUMN_GAP)
+        );
+        const cats = categoriesRef.current;
+        if (colIdx >= 0 && colIdx < cats.length) {
+          const target = cats[colIdx];
+          if (target.id !== note.categoryId) {
+            updateNoteCategory(note.id, target.id);
+          }
+        }
+      }
+      cleanupDrag();
+    },
+    [updateNoteCategory, cleanupDrag]
+  );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
       <StatusBar style="dark" />
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* 헤더 */}
-        <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
-          <Text style={{ fontSize: 28, fontWeight: "700", color: colors.text, letterSpacing: -0.5 }}>
-            탐색
+      {/* Header */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: 20,
+          paddingTop: 16,
+          paddingBottom: 12,
+        }}
+      >
+        <Text
+          style={{
+            fontSize: 28,
+            fontWeight: "700",
+            color: colors.text,
+            letterSpacing: -0.5,
+          }}
+        >
+          탐색
+        </Text>
+        <TouchableOpacity
+          onPress={() => folderSheetRef.current?.expand()}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 4,
+            backgroundColor: colors.surfaceElevated,
+            paddingHorizontal: 12,
+            paddingVertical: 7,
+            borderRadius: 20,
+            borderWidth: 0.5,
+            borderColor: colors.border,
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="add" size={14} color={colors.textSecondary} />
+          <Text style={{ fontSize: 13, color: colors.textSecondary, fontWeight: "600" }}>
+            폴더 추가
           </Text>
-        </View>
+        </TouchableOpacity>
+      </View>
 
-        {/* 검색바 */}
-        <View style={{ paddingHorizontal: 20, marginBottom: 20 }}>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: colors.surfaceElevated,
-              borderRadius: 12,
-              paddingHorizontal: 14,
-              paddingVertical: 10,
-              gap: 8,
-            }}
-          >
-            <Text style={{ fontSize: 15, color: colors.textTertiary }}>🔍</Text>
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              placeholder="메모 검색..."
-              placeholderTextColor={colors.textTertiary}
-              style={{ flex: 1, color: colors.text, fontSize: 15, padding: 0 }}
-              testID="search-input"
-            />
-          </View>
-        </View>
-
-        {/* 기본 폴더 */}
-        <View style={{ paddingHorizontal: 20, marginBottom: 8 }}>
-          <Text
-            style={{
-              fontSize: 13,
-              fontWeight: "600",
-              color: colors.textTertiary,
-              marginBottom: 4,
-            }}
-          >
-            기본 폴더
-          </Text>
-          {defaultFolders.map((folder, idx) => (
-            <View key={folder.id}>
-              <FolderRow
-                icon={folder.icon}
-                name={folder.name}
-                count={countFor(folder.id)}
-                iconBg={FOLDER_BG[folder.name] ?? colors.surfaceElevated}
-              />
-              {idx < defaultFolders.length - 1 && (
-                <View style={{ height: 0.5, backgroundColor: colors.border, marginLeft: 52 }} />
-              )}
-            </View>
-          ))}
-        </View>
-
-        {/* 커스텀 폴더 */}
-        <View style={{ paddingHorizontal: 20, marginBottom: 8, marginTop: 12 }}>
-          <Text
-            style={{
-              fontSize: 13,
-              fontWeight: "600",
-              color: colors.textTertiary,
-              marginBottom: 4,
-            }}
-          >
-            커스텀 폴더
-          </Text>
-          {customFolders.map((folder, idx) => (
-            <View key={folder.id}>
-              <FolderRow
-                icon={folder.icon}
-                name={folder.name}
-                count={countFor(folder.id)}
-                iconBg={colors.primarySoft}
-              />
-              {idx < customFolders.length - 1 && (
-                <View style={{ height: 0.5, backgroundColor: colors.border, marginLeft: 52 }} />
-              )}
-            </View>
-          ))}
-        </View>
-
-        {/* 새 폴더 추가 */}
-        <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
-          <TouchableOpacity
-            style={{
-              borderWidth: 1.5,
-              borderStyle: "dashed",
-              borderColor: colors.border,
-              borderRadius: 14,
-              paddingVertical: 12,
-              alignItems: "center",
-            }}
-            activeOpacity={0.7}
-            testID="add-folder-btn"
-          >
-            <Text style={{ fontSize: 14, color: colors.textTertiary, fontWeight: "500" }}>
-              + 새 폴더 추가
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* 최근 메모 */}
-        <View style={{ paddingHorizontal: 20 }}>
-          <Text
-            style={{
-              fontSize: 13,
-              fontWeight: "600",
-              color: colors.textTertiary,
-              marginBottom: 12,
-            }}
-          >
-            {query.trim() ? "검색 결과" : "최근 메모"}
-          </Text>
-
-          {recentNotes.length === 0 ? (
-            <View style={{ alignItems: "center", paddingVertical: 32 }}>
-              <Text style={{ fontSize: 36 }}>📭</Text>
-              <Text style={{ color: colors.textTertiary, fontSize: 14, marginTop: 12 }}>
-                {query.trim() ? "검색 결과가 없어요" : "저장된 메모가 없어요"}
-              </Text>
-            </View>
-          ) : (
-            recentNotes.map((note) => (
-              <NoteCardSmall key={note.id} note={note} />
-            ))
+      {/* Search */}
+      <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: colors.surfaceElevated,
+            borderRadius: 12,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            gap: 8,
+            borderWidth: 0.5,
+            borderColor: colors.border,
+          }}
+        >
+          <Ionicons name="search-outline" size={16} color={colors.textTertiary} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="메모 검색..."
+            placeholderTextColor={colors.textTertiary}
+            style={{ flex: 1, color: colors.text, fontSize: 14, padding: 0 }}
+            testID="search-input"
+          />
+          {query.length > 0 && (
+            <TouchableOpacity onPress={() => setQuery("")}>
+              <Ionicons name="close-circle" size={16} color={colors.textTertiary} />
+            </TouchableOpacity>
           )}
         </View>
+      </View>
 
-        <View style={{ height: 24 }} />
-      </ScrollView>
+      {/* Hint */}
+      {!query.trim() && confirmedNotes.length > 0 && (
+        <View style={{ paddingHorizontal: 20, marginBottom: 10 }}>
+          <Text style={{ fontSize: 11, color: colors.textTertiary }}>
+            ✦ 카드를 길게 눌러 다른 칸으로 드래그하세요
+          </Text>
+        </View>
+      )}
+
+      {/* Board */}
+      <View
+        style={{ flex: 1 }}
+        onLayout={(e) => setBoardHeight(e.nativeEvent.layout.height - 16)}
+      >
+        <ScrollView
+          ref={hScrollRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          scrollEnabled={!draggingNoteId}
+          scrollEventThrottle={16}
+          onLayout={() => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (hScrollRef.current as any)?.measureInWindow((x: number) => {
+              scrollViewScreenX.current = x;
+            });
+          }}
+          onScroll={(e) => {
+            scrollOffset.current = e.nativeEvent.contentOffset.x;
+          }}
+          contentContainerStyle={{
+            paddingHorizontal: BOARD_PADDING,
+            paddingBottom: 16,
+            gap: COLUMN_GAP,
+            alignItems: "flex-start",
+          }}
+          style={{ flex: 1 }}
+        >
+          {categories.map((category) => (
+            <KanbanColumn
+              key={category.id}
+              category={category}
+              notes={notesFor(category.id)}
+              draggingNoteId={draggingNoteId}
+              isDragging={!!draggingNoteId}
+              dragX={dragX}
+              dragY={dragY}
+              onDragStart={handleDragStart}
+              onDrop={handleDrop}
+              onDragCancel={cleanupDrag}
+              boardHeight={boardHeight}
+            />
+          ))}
+        </ScrollView>
+
+        {/* Floating drag card */}
+        {draggingNote && (
+          <FloatingCard
+            note={draggingNote}
+            dragX={dragX}
+            dragY={dragY}
+            cardWidth={dragCardWidth}
+          />
+        )}
+      </View>
+
+      <FolderFormSheet ref={folderSheetRef} />
     </SafeAreaView>
   );
 }

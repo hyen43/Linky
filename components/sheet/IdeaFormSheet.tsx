@@ -1,7 +1,8 @@
-import React, { forwardRef, useCallback, useEffect, useRef, useState } from "react";
+import React, { forwardRef, useCallback, useEffect, useState } from "react";
 import {
   Keyboard,
   Platform,
+  ScrollView,
   Text,
   TouchableOpacity,
   View,
@@ -12,31 +13,40 @@ import BottomSheet, {
   BottomSheetTextInput,
 } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
-import { useChatStore } from "../../store/useChatStore";
+import { useSaveNote, useUpdateNote } from "../../lib/api/useNotesMutation";
+import { useCategoryStore } from "../../store/useCategoryStore";
 import { useAppTheme } from "../../lib/theme";
 
-interface EditingNote {
+export interface EditingNote {
   id: string;
   title: string;
   content: string;
   tags: string[];
+  categoryId?: string | null;
 }
 
 interface Props {
   onClose?: () => void;
+  onSaved?: (noteId: string) => void;
   editingNote?: EditingNote | null;
+  defaultCategoryId?: string | null;
 }
 
 export type IdeaFormSheetRef = BottomSheet;
 
 export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
-  ({ onClose, editingNote }, ref) => {
+  ({ onClose, onSaved, editingNote, defaultCategoryId }, ref) => {
     const { colors } = useAppTheme();
-    const [title, setTitle]     = useState("");
+    const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
     const [tagInput, setTagInput] = useState("");
-    const [tags, setTags]       = useState<string[]>([]);
-    const { saveNote }          = useChatStore();
+    const [tags, setTags] = useState<string[]>([]);
+    const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+    const saveNote = useSaveNote();
+    const updateNote = useUpdateNote();
+    const { categories } = useCategoryStore();
+
+    const isEditing = !!editingNote;
 
     useEffect(() => {
       if (editingNote) {
@@ -44,18 +54,17 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
         setContent(editingNote.content);
         setTags(editingNote.tags);
         setTagInput("");
+        setSelectedCategoryId(editingNote.categoryId ?? defaultCategoryId ?? categories[0]?.id ?? null);
       } else {
         setTitle("");
         setContent("");
         setTags([]);
         setTagInput("");
+        setSelectedCategoryId(defaultCategoryId ?? categories[0]?.id ?? null);
       }
-    }, [editingNote?.id]);
-
-    const snapPoints = ["92%"];
+    }, [editingNote?.id, defaultCategoryId]);
 
     const handleTagInputChange = (text: string) => {
-      // comma or space triggers chip creation
       if (text.endsWith(",") || text.endsWith(" ")) {
         const trimmed = text.slice(0, -1).trim();
         if (trimmed && !tags.includes(trimmed)) {
@@ -83,13 +92,26 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
       const finalTags = [...tags];
       if (tagInput.trim()) finalTags.push(tagInput.trim());
 
-      saveNote({
-        title: title.trim() || content.trim().slice(0, 40),
-        content: content.trim(),
-        tags: finalTags,
-      });
+      if (isEditing && editingNote) {
+        updateNote.mutate({
+          noteId: editingNote.id,
+          patch: {
+            title: title.trim() || content.trim().slice(0, 40),
+            content: content.trim(),
+            tags: finalTags,
+            categoryId: selectedCategoryId,
+          },
+        });
+        onSaved?.(editingNote.id);
+      } else {
+        saveNote.mutate({
+          title: title.trim() || content.trim().slice(0, 40),
+          content: content.trim(),
+          tags: finalTags,
+          categoryId: selectedCategoryId,
+        });
+      }
 
-      // reset
       setTitle("");
       setContent("");
       setTagInput("");
@@ -97,7 +119,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
       Keyboard.dismiss();
       (ref as React.RefObject<BottomSheet>)?.current?.close();
       onClose?.();
-    }, [title, content, tags, tagInput]);
+    }, [title, content, tags, tagInput, selectedCategoryId, isEditing, editingNote]);
 
     const renderBackdrop = useCallback(
       (props: any) => (
@@ -117,7 +139,7 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
       <BottomSheet
         ref={ref}
         index={-1}
-        snapPoints={snapPoints}
+        snapPoints={["92%"]}
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         backgroundStyle={{ backgroundColor: colors.surface }}
@@ -147,24 +169,24 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
               paddingTop: 8,
               paddingBottom: 20,
               borderBottomWidth: 0.5,
-              borderBottomColor: "#E5E5E5",
+              borderBottomColor: colors.border,
             }}
           >
             <Text
               style={{
-                color: "#111111",
+                color: colors.text,
                 fontSize: 17,
                 fontWeight: "700",
                 letterSpacing: -0.4,
               }}
             >
-              📝 노트 작성
+              {isEditing ? "📝 노트 수정" : "📝 노트 작성"}
             </Text>
             <TouchableOpacity
               onPress={handleSave}
               disabled={!canSave}
               style={{
-                backgroundColor: canSave ? "#1A6DFF" : "#F2F3F5",
+                backgroundColor: canSave ? colors.primary : colors.surfaceElevated,
                 paddingHorizontal: 18,
                 paddingVertical: 8,
                 borderRadius: 20,
@@ -172,13 +194,13 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
             >
               <Text
                 style={{
-                  color: canSave ? "#FFFFFF" : "#999999",
+                  color: canSave ? "#FFFFFF" : colors.textTertiary,
                   fontSize: 14,
                   fontWeight: "700",
                   letterSpacing: -0.2,
                 }}
               >
-                저장하기
+                {isEditing ? "수정 완료" : "저장하기"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -201,19 +223,19 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
                 value={title}
                 onChangeText={setTitle}
                 placeholder="아이디어 제목"
-                placeholderTextColor="#BBBBBB"
+                placeholderTextColor={colors.textTertiary}
                 returnKeyType="next"
                 style={{
-                  backgroundColor: "#F7F7F8",
+                  backgroundColor: colors.surfaceElevated,
                   borderRadius: 12,
                   paddingHorizontal: 16,
                   paddingVertical: 14,
-                  color: "#111111",
+                  color: colors.text,
                   fontSize: 16,
                   fontWeight: "500",
                   letterSpacing: -0.3,
                   borderWidth: 1,
-                  borderColor: title ? "#1A6DFF" : "#E5E5E5",
+                  borderColor: title ? colors.primary : colors.border,
                 }}
               />
             </View>
@@ -235,22 +257,74 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
                 value={content}
                 onChangeText={setContent}
                 placeholder="본문 (맥락을 자유롭게 적어보세요)"
-                placeholderTextColor="#BBBBBB"
+                placeholderTextColor={colors.textTertiary}
                 multiline
                 textAlignVertical="top"
                 style={{
-                  backgroundColor: "#F7F7F8",
+                  backgroundColor: colors.surfaceElevated,
                   borderRadius: 12,
                   paddingHorizontal: 16,
                   paddingVertical: 14,
-                  color: "#111111",
+                  color: colors.text,
                   fontSize: 15,
                   lineHeight: 24,
                   minHeight: 100,
                   borderWidth: 1,
-                  borderColor: content ? "#1A6DFF" : "#E5E5E5",
+                  borderColor: content ? colors.primary : colors.border,
                 }}
               />
+            </View>
+
+            {/* ── Folder ── */}
+            <View style={{ gap: 8 }}>
+              <Text
+                style={{
+                  color: colors.textTertiary,
+                  fontSize: 11,
+                  fontWeight: "600",
+                  letterSpacing: 0.8,
+                  textTransform: "uppercase",
+                }}
+              >
+                폴더
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8 }}
+              >
+                {categories.map((cat) => {
+                  const isSelected = selectedCategoryId === cat.id;
+                  return (
+                    <TouchableOpacity
+                      key={cat.id}
+                      onPress={() => setSelectedCategoryId(cat.id)}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6,
+                        paddingHorizontal: 14,
+                        paddingVertical: 8,
+                        borderRadius: 20,
+                        backgroundColor: isSelected ? colors.primary : colors.surfaceElevated,
+                        borderWidth: isSelected ? 0 : 0.5,
+                        borderColor: colors.border,
+                      }}
+                    >
+                      <Text style={{ fontSize: 14 }}>{cat.icon}</Text>
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          fontWeight: "600",
+                          color: isSelected ? "#FFFFFF" : colors.textSecondary,
+                        }}
+                      >
+                        {cat.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
             </View>
 
             {/* ── Tags ── */}
@@ -267,7 +341,6 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
                 태그
               </Text>
 
-              {/* Chips */}
               {tags.length > 0 && (
                 <View
                   style={{
@@ -293,20 +366,10 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
                         borderColor: colors.border,
                       }}
                     >
-                      <Text
-                        style={{
-                          color: colors.primary,
-                          fontSize: 13,
-                          fontWeight: "500",
-                        }}
-                      >
+                      <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "500" }}>
                         #{tag}
                       </Text>
-                      <Ionicons
-                        name="close"
-                        size={12}
-                        color={colors.primary}
-                      />
+                      <Ionicons name="close" size={12} color={colors.primary} />
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -340,19 +403,9 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
                     paddingVertical: 12,
                   }}
                 />
-                <Ionicons
-                  name="pricetag-outline"
-                  size={16}
-                  color={colors.textTertiary}
-                />
+                <Ionicons name="pricetag-outline" size={16} color={colors.textTertiary} />
               </View>
-              <Text
-                style={{
-                  color: colors.textTertiary,
-                  fontSize: 11,
-                  marginTop: 2,
-                }}
-              >
+              <Text style={{ color: colors.textTertiary, fontSize: 11, marginTop: 2 }}>
                 쉼표(,) 또는 Enter로 태그 추가 · 태그 탭하면 삭제
               </Text>
             </View>

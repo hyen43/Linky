@@ -1,21 +1,46 @@
 import React, { FC, useState } from "react";
-import { Platform, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Platform, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useCategoryStore } from "../../store/useCategoryStore";
 import { useAppTheme } from "../../lib/theme";
 
 interface Props {
   onOpen: () => void;
   onSend?: (text: string) => void;
-  folderName?: string;
+  selectedCategoryId?: string | null;
+  onCategoryChange?: (categoryId: string) => void;
 }
 
-export const InputBar: FC<Props> = ({ onOpen, onSend, folderName = "초안" }) => {
+export const InputBar: FC<Props> = ({
+  onOpen,
+  onSend,
+  selectedCategoryId,
+  onCategoryChange,
+}) => {
   const { colors } = useAppTheme();
+  const { categories } = useCategoryStore();
   const [text, setText] = useState("");
+
+  const selectedFolder = categories.find((c) => c.id === selectedCategoryId);
+  const folderName = selectedFolder?.name ?? "초안";
 
   const handleSend = () => {
     if (!text.trim()) return;
     onSend?.(text.trim());
     setText("");
+  };
+
+  const handleFolderPress = () => {
+    Alert.alert(
+      "폴더 선택",
+      "저장할 폴더를 선택해주세요",
+      [
+        ...categories.map((c) => ({
+          text: `${c.icon} ${c.name}`,
+          onPress: () => onCategoryChange?.(c.id),
+        })),
+        { text: "취소", style: "cancel" as const },
+      ]
+    );
   };
 
   return (
@@ -32,7 +57,12 @@ export const InputBar: FC<Props> = ({ onOpen, onSend, folderName = "초안" }) =
     >
       {/* 폴더 + 노트 모드 토글 */}
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+        <TouchableOpacity
+          onPress={handleFolderPress}
+          style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+          accessibilityRole="button"
+          accessibilityLabel="폴더 변경"
+        >
           <Text style={{ fontSize: 12, color: colors.textTertiary }}>📁 폴더:</Text>
           <View
             style={{
@@ -47,7 +77,7 @@ export const InputBar: FC<Props> = ({ onOpen, onSend, folderName = "초안" }) =
             </Text>
           </View>
           <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "600" }}>변경</Text>
-        </View>
+        </TouchableOpacity>
 
         <TouchableOpacity
           onPress={onOpen}
