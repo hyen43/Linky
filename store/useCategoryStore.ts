@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { supabase } from "../lib/supabase";
+import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { Category, DEFAULT_CATEGORIES } from "../types";
 import { useAuthStore } from "./useAuthStore";
 
@@ -64,6 +64,12 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
     if (get().initialized) return;
 
     const userId = useAuthStore.getState().user?.id;
+
+    if (!isSupabaseConfigured) {
+      set({ categories: buildDefaults(userId), initialized: true });
+      return;
+    }
+
     const { data, error } = await supabase
       .from("categories")
       .select("*")

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { supabase } from "../lib/supabase";
+import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { ChatMessage, DerivedIdea, DrillDownResult, Note } from "../types";
 import { drillDownIdea, processIdea } from "../lib/claude";
 import { useCategoryStore } from "./useCategoryStore";
@@ -92,6 +92,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   initialize: async () => {
     if (get().initialized) return;
+
+    if (!isSupabaseConfigured) {
+      set({ initialized: true });
+      return;
+    }
 
     const userId = useAuthStore.getState().user?.id;
     const { data, error } = await supabase
