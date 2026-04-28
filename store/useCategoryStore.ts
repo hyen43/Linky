@@ -1,91 +1,136 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { supabase } from "../lib/supabase";
 import { Category, DEFAULT_CATEGORIES } from "../types";
+import { useAuthStore } from "./useAuthStore";
 
 let _idCounter = 100;
-const genId = () => `cat-${++_idCounter}`;
+const genId = () => `cat-${++_idCounter}-${Date.now()}`;
 
-const buildDefaults = (): Category[] =>
-  DEFAULT_CATEGORIES.map((c) => ({
+const buildDefaults = (userId = "local"): Category[] =>
+  DEFAULT_CATEGORIES.map((c, i) => ({
     ...c,
-    id: genId(),
-    userId: "local",
+    id: `cat-${userId}-default-${i}`,
+    userId,
     createdAt: new Date(),
   }));
 
+// ─── DB ↔ 스토어 매핑 ────────────────────────────────────────────────────────
+
+function fromDb(row: Record<string, unknown>): Category {
+  return {
+    id: row.id as string,
+    userId: row.user_id as string,
+    name: row.name as string,
+    color: row.color as string,
+    icon: row.icon as string,
+    isDefault: row.is_default as boolean,
+    sortOrder: row.sort_order as number,
+    createdAt: new Date(row.created_at as string),
+  };
+}
+
+function toDb(cat: Category) {
+  return {
+    id: cat.id,
+    user_id: cat.userId,
+    name: cat.name,
+    color: cat.color,
+    icon: cat.icon,
+    is_default: cat.isDefault,
+    sort_order: cat.sortOrder,
+    created_at: cat.createdAt.toISOString(),
+  };
+}
+
+// ─── 스토어 ──────────────────────────────────────────────────────────────────
+
 interface CategoryState {
   categories: Category[];
-  addCategory: (params: { name: string; color: string; icon: string }) => Category;
+  initialized: boolean;
+
+  initialize: () => Promise<void>;
+  addCategory: (params: { name: string; color: string; icon: string }) => Promise<Category>;
   updateCategory: (id: string, patch: Partial<Pick<Category, "name" | "color" | "icon">>) => void;
   deleteCategory: (id: string) => void;
   reorder: (orderedIds: string[]) => void;
   getCategoryById: (id: string | null) => Category | null;
 }
 
-export const useCategoryStore = create<CategoryState>()(
-  persist(
-    (set, get) => ({
-      categories: buildDefaults(),
+export const useCategoryStore = create<CategoryState>((set, get) => ({
+  categories: [],
+  initialized: false,
 
-      addCategory: ({ name, color, icon }) => {
-        const newCat: Category = {
-          id: genId(),
-          userId: "local",
-          name,
-          color,
-          icon,
-          isDefault: false,
-          sortOrder: get().categories.length,
-          createdAt: new Date(),
-        };
-        set((s) => ({ categories: [...s.categories, newCat] }));
-        return newCat;
-      },
+  initialize: async () => {
+    if (get().initialized) return;
 
-      updateCategory: (id, patch) =>
-        set((s) => ({
-          categories: s.categories.map((c) => (c.id === id ? { ...c, ...patch } : c)),
-        })),
+    const userId = useAuthStore.getState().user?.id;
+    const { data, error } = await supabase
+      .from("categories")
+      .select("*")
+      .eq("user_id", userId ?? "")
+      .order("sort_order");
 
-      deleteCategory: (id) =>
-        set((s) => ({
-          categories: s.categories.filter((c) => c.id !== id),
-        })),
+    if (error) { console.warn("categories fetch error:", error.message); return; }
 
-      reorder: (orderedIds) =>
-        set((s) => ({
-          categories: orderedIds
-            .map((id, idx) => {
-              const cat = s.categories.find((c) => c.id === id);
-              return cat ? { ...cat, sortOrder: idx } : null;
-            })
-            .filter(Boolean) as Category[],
-        })),
-
-      getCategoryById: (id) => {
-        if (!id) return null;
-        return get().categories.find((c) => c.id === id) ?? null;
-      },
-    }),
-    {
-      name: "category-store",
-      storage: createJSONStorage(() => AsyncStorage),
-      onRehydrateStorage: () => (state) => {
-        if (!state) return;
-        state.categories = state.categories.map((c) => ({
-          ...c,
-          createdAt: new Date(c.createdAt as unknown as string),
-        }));
-        // Sync counter above highest persisted ID to avoid collisions
-        const maxNum = Math.max(
-          100,
-          ...state.categories
-            .map((c) => parseInt(c.id.replace("cat-", ""), 10))
-            .filter((n) => !isNaN(n))
-        );
-        _idCounter = maxNum;
-      },
+    if (data && data.length > 0) {
+      set({ categories: data.map(fromDb), initialized: true });
+    } else {
+      const defaults = buildDefaults(userId);
+      await supabase.from("categories").insert(defaults.map(toDb));
+      set({ categories: defaults, initialized: true });
     }
-  )
-);
+  },
+
+  addCategory: async ({ name, color, icon }) => {
+    const newCat: Category = {
+      id: genId(),
+      userId: useAuthStore.getState().user?.id ?? "local",
+      name,
+      color,
+      icon,
+      isDefault: false,
+      sortOrder: get().categories.length,
+      createdAt: new Date(),
+    };
+    set((s) => ({ categories: [...s.categories, newCat] }));
+    supabase.from("categories").insert(toDb(newCat)).then(({ error }) => {
+      if (error) console.warn("category insert error:", error.message);
+    });
+    return newCat;
+  },
+
+  updateCategory: (id, patch) => {
+    set((s) => ({
+      categories: s.categories.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+    }));
+    supabase.from("categories").update(patch).eq("id", id).then(({ error }) => {
+      if (error) console.warn("category update error:", error.message);
+    });
+  },
+
+  deleteCategory: (id) => {
+    set((s) => ({ categories: s.categories.filter((c) => c.id !== id) }));
+    supabase.from("categories").delete().eq("id", id).then(({ error }) => {
+      if (error) console.warn("category delete error:", error.message);
+    });
+  },
+
+  reorder: (orderedIds) => {
+    set((s) => ({
+      categories: orderedIds
+        .map((id, idx) => {
+          const cat = s.categories.find((c) => c.id === id);
+          return cat ? { ...cat, sortOrder: idx } : null;
+        })
+        .filter(Boolean) as Category[],
+    }));
+    orderedIds.forEach((id, idx) => {
+      supabase.from("categories").update({ sort_order: idx }).eq("id", id);
+    });
+  },
+
+  getCategoryById: (id) => {
+    if (!id) return null;
+    return get().categories.find((c) => c.id === id) ?? null;
+  },
+}));

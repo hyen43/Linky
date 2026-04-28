@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   Alert,
   Modal,
+  Platform,
   ScrollView,
   Share,
   Text,
@@ -12,8 +13,10 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import { useCategoryStore } from "../../store/useCategoryStore";
 import { useChatStore } from "../../store/useChatStore";
+import { useAuthStore } from "../../store/useAuthStore";
 import { useSettingsStore, WhipLevel } from "../../store/useSettingsStore";
 import { useAppTheme } from "../../lib/theme";
 
@@ -113,6 +116,8 @@ export default function MyPage() {
   const { colors } = useAppTheme();
   const { categories } = useCategoryStore();
   const { notes } = useChatStore();
+  const { user, signOut } = useAuthStore();
+  const router = useRouter();
   const {
     userName,
     platforms,
@@ -264,6 +269,26 @@ export default function MyPage() {
       "Linky v1.0.0\n\nAI 아이디어 인큐베이션 앱\n© 2026 Linky Team",
       [{ text: "확인" }]
     );
+  };
+
+  const handleSignOut = async () => {
+    if (Platform.OS === "web") {
+      if (!window.confirm("정말 로그아웃 할까요?")) return;
+      await signOut();
+      router.replace("/login" as never);
+    } else {
+      Alert.alert("로그아웃", "정말 로그아웃 할까요?", [
+        { text: "취소", style: "cancel" },
+        {
+          text: "로그아웃",
+          style: "destructive",
+          onPress: async () => {
+            await signOut();
+            router.replace("/login" as never);
+          },
+        },
+      ]);
+    }
   };
 
   const avatarLetter = userName.charAt(0);
@@ -610,8 +635,33 @@ export default function MyPage() {
             label="버전 정보"
             value="v1.0.0"
             onPress={handleVersionInfo}
-            isLast
           />
+        </View>
+
+        {/* 계정 섹션 */}
+        <View style={{ paddingHorizontal: 20, marginBottom: 48 }}>
+          <View
+            style={{
+              backgroundColor: colors.surfaceElevated,
+              borderRadius: 14,
+              paddingHorizontal: 16,
+            }}
+          >
+            <View style={{ paddingVertical: 14 }}>
+              <Text style={{ fontSize: 13, color: colors.textTertiary }}>계정</Text>
+              <Text style={{ fontSize: 14, color: colors.text, marginTop: 2 }}>
+                {user?.email ?? "-"}
+              </Text>
+            </View>
+            <View style={{ height: 0.5, backgroundColor: colors.border }} />
+            <TouchableOpacity
+              onPress={handleSignOut}
+              activeOpacity={0.7}
+              style={{ paddingVertical: 14 }}
+            >
+              <Text style={{ fontSize: 15, color: "#EF4444" }}>로그아웃</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>

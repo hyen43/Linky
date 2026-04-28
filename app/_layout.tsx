@@ -1,10 +1,12 @@
 import "../global.css";
 import { useEffect } from "react";
-import { Stack, useRouter } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuthStore } from "../store/useAuthStore";
+import { useCategoryStore } from "../store/useCategoryStore";
+import { useChatStore } from "../store/useChatStore";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -12,24 +14,43 @@ const queryClient = new QueryClient({
   },
 });
 
-export default function RootLayout() {
+function AuthGate() {
+  const { user, isLoading, initialize } = useAuthStore();
   const router = useRouter();
+  const segments = useSegments();
 
   useEffect(() => {
-    const timer = setTimeout(async () => {
-      const launched = await AsyncStorage.getItem("hasLaunched");
-      if (!launched) {
-        await AsyncStorage.setItem("hasLaunched", "true");
-        router.replace("/onboarding");
-      }
-    }, 0);
-    return () => clearTimeout(timer);
+    initialize();
   }, []);
+
+  useEffect(() => {
+    if (isLoading) return;
+    const inLoginScreen = segments[0] === "login";
+    if (!user && !inLoginScreen) {
+      router.replace("/login" as never);
+    } else if (user && inLoginScreen) {
+      router.replace("/(tabs)" as never);
+    }
+  }, [user, isLoading]);
+
+  return null;
+}
+
+export default function RootLayout() {
+  const user = useAuthStore((s) => s.user);
+
+  useEffect(() => {
+    if (user) {
+      useCategoryStore.getState().initialize();
+      useChatStore.getState().initialize();
+    }
+  }, [user]);
 
   return (
     <QueryClientProvider client={queryClient}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
+          <AuthGate />
           <Stack screenOptions={{ headerShown: false }} />
         </SafeAreaProvider>
       </GestureHandlerRootView>
