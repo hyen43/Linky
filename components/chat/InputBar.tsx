@@ -1,85 +1,145 @@
-import React, { FC } from "react";
-import { Platform, Text, TouchableOpacity, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import React, { FC, useState } from "react";
+import { Alert, Platform, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useCategoryStore } from "../../store/useCategoryStore";
 import { useAppTheme } from "../../lib/theme";
 
 interface Props {
   onOpen: () => void;
-  onMicPress: () => void;
-  isRecording: boolean;
+  onSend?: (text: string) => void;
+  selectedCategoryId?: string | null;
+  onCategoryChange?: (categoryId: string) => void;
 }
 
-export const InputBar: FC<Props> = ({ onOpen, onMicPress, isRecording }) => {
+export const InputBar: FC<Props> = ({
+  onOpen,
+  onSend,
+  selectedCategoryId,
+  onCategoryChange,
+}) => {
   const { colors } = useAppTheme();
+  const { categories } = useCategoryStore();
+  const [text, setText] = useState("");
+
+  const selectedFolder = categories.find((c) => c.id === selectedCategoryId);
+  const folderName = selectedFolder?.name ?? "초안";
+
+  const handleSend = () => {
+    if (!text.trim()) return;
+    onSend?.(text.trim());
+    setText("");
+  };
+
+  const handleFolderPress = () => {
+    Alert.alert(
+      "폴더 선택",
+      "저장할 폴더를 선택해주세요",
+      [
+        ...categories.map((c) => ({
+          text: `${c.icon} ${c.name}`,
+          onPress: () => onCategoryChange?.(c.id),
+        })),
+        { text: "취소", style: "cancel" as const },
+      ]
+    );
+  };
 
   return (
     <View
       style={{
-        backgroundColor: colors.surface,
+        backgroundColor: colors.background,
         borderTopWidth: 0.5,
         borderTopColor: colors.border,
-        paddingBottom: Platform.OS === "ios" ? 20 : 12,
         paddingTop: 10,
-        paddingHorizontal: 12,
+        paddingBottom: Platform.OS === "ios" ? 20 : 12,
+        paddingHorizontal: 16,
+        gap: 8,
       }}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-      {/* Mic button */}
-      <TouchableOpacity
-        accessibilityRole="button"
-        accessibilityLabel="마이크 버튼"
-        onPress={onMicPress}
-        style={{
-          width: 44,
-          height: 44,
-          borderRadius: 22,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: isRecording ? colors.primary : colors.surfaceElevated,
-        }}
-      >
-        <Ionicons
-          name={isRecording ? "stop" : "mic-outline"}
-          size={18}
-          color={isRecording ? colors.surface : colors.textTertiary}
-        />
-      </TouchableOpacity>
+      {/* 폴더 + 노트 모드 토글 */}
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <TouchableOpacity
+          onPress={handleFolderPress}
+          style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+          accessibilityRole="button"
+          accessibilityLabel="폴더 변경"
+        >
+          <Text style={{ fontSize: 12, color: colors.textTertiary }}>📁 폴더:</Text>
+          <View
+            style={{
+              backgroundColor: colors.surfaceElevated,
+              borderRadius: 10,
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+            }}
+          >
+            <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: "500" }}>
+              {folderName}
+            </Text>
+          </View>
+          <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "600" }}>변경</Text>
+        </TouchableOpacity>
 
-      {/* Input trigger */}
-      <TouchableOpacity
-        accessibilityRole="button"
-        accessibilityLabel="아이디어 입력"
-        onPress={onOpen}
-        activeOpacity={0.7}
-        style={{
-          flex: 1,
-          flexDirection: "row",
-          alignItems: "center",
-          backgroundColor: colors.surfaceElevated,
-          borderRadius: 22,
-          paddingHorizontal: 16,
-          height: 44,
-          borderWidth: 1,
-          borderColor: colors.border,
-        }}
-      >
-        <Text style={{ flex: 1, fontSize: 15, color: colors.textTertiary }}>
-          오늘 떠오른 아이디어...
-        </Text>
+        <TouchableOpacity
+          onPress={onOpen}
+          accessibilityRole="button"
+          accessibilityLabel="노트 모드 열기"
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: colors.surfaceElevated,
+            borderRadius: 10,
+            paddingHorizontal: 8,
+            paddingVertical: 3,
+            gap: 3,
+          }}
+        >
+          <Text style={{ fontSize: 11 }}>📝</Text>
+          <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: "500" }}>노트 모드</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 입력창 + 전송 버튼 */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
         <View
           style={{
-            width: 26,
-            height: 26,
-            borderRadius: 13,
+            flex: 1,
+            backgroundColor: colors.surfaceElevated,
+            borderRadius: 20,
+            borderWidth: 0.5,
+            borderColor: colors.border,
+            paddingHorizontal: 16,
+            paddingVertical: Platform.OS === "ios" ? 10 : 8,
+          }}
+        >
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            placeholder="아이디어를 적어보세요..."
+            placeholderTextColor={colors.textTertiary}
+            style={{ color: colors.text, fontSize: 14, padding: 0 }}
+            onSubmitEditing={handleSend}
+            returnKeyType="send"
+            accessibilityLabel="아이디어 입력"
+            testID="quick-input"
+          />
+        </View>
+
+        <TouchableOpacity
+          onPress={handleSend}
+          accessibilityRole="button"
+          accessibilityLabel="전송"
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 18,
             backgroundColor: colors.primary,
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <Ionicons name="add" size={16} color={colors.surface} />
-        </View>
-      </TouchableOpacity>
-    </View>
+          <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "700" }}>→</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };

@@ -3,9 +3,16 @@ import { useEffect } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useAuthStore } from "../store/useAuthStore";
 import { useCategoryStore } from "../store/useCategoryStore";
 import { useChatStore } from "../store/useChatStore";
-import { useAuthStore } from "../store/useAuthStore";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { staleTime: 0, gcTime: 5 * 60 * 1000 },
+  },
+});
 
 function AuthGate() {
   const { user, isLoading, initialize } = useAuthStore();
@@ -40,11 +47,13 @@ export default function RootLayout() {
   }, [user]);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <AuthGate />
-        <Stack screenOptions={{ headerShown: false }} />
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <QueryClientProvider client={queryClient}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <AuthGate />
+          <Stack screenOptions={{ headerShown: false }} />
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </QueryClientProvider>
   );
 }

@@ -1,6 +1,6 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useCallback, useMemo } from "react";
 import {
-  FlatList,
+  Dimensions,
   ScrollView,
   Text,
   TextInput,
@@ -10,531 +10,643 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  runOnJS,
+  type SharedValue,
+} from "react-native-reanimated";
 import { useCategoryStore } from "../../store/useCategoryStore";
 import { useChatStore } from "../../store/useChatStore";
-import type { Note } from "../../types";
 import { useAppTheme } from "../../lib/theme";
-import { NoteDetailSheet, NoteDetailSheetRef } from "../../components/sheet/NoteDetailSheet";
+import {
+  FolderFormSheet,
+  FolderFormSheetRef,
+} from "../../components/sheet/FolderFormSheet";
+import type { Note, Category } from "../../types";
 
-function NoteCard({
-  note,
-  colors,
-  onPress,
-}: {
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const COLUMN_WIDTH = Math.min(230, SCREEN_WIDTH * 0.65);
+const COLUMN_GAP = 12;
+const BOARD_PADDING = 20;
+
+const COLUMN_COLORS: Record<string, string> = {
+  초안: "#F4F4F8",
+  제작중: "#FFF8F0",
+  완료: "#F0FBF4",
+};
+
+// ─── Floating card (drag overlay) ────────────────────────────────────────────
+
+interface FloatingCardProps {
   note: Note;
-  colors: ReturnType<typeof useAppTheme>["colors"];
-  onPress: () => void;
-}) {
-  const { getCategoryById } = useCategoryStore();
-  const category = getCategoryById(note.categoryId);
+  dragX: SharedValue<number>;
+  dragY: SharedValue<number>;
+  cardWidth: number;
+}
+
+function FloatingCard({ note, dragX, dragY, cardWidth }: FloatingCardProps) {
+  const { colors } = useAppTheme();
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: dragX.value }, { translateY: dragY.value }],
+  }));
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.75}
-      onPress={onPress}
-      className="mb-3 flex-row overflow-hidden rounded-2xl"
-      style={{ backgroundColor: colors.surface }}
-      testID={`note-card-${note.id}`}
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        {
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: cardWidth,
+          zIndex: 9999,
+          backgroundColor: colors.surface,
+          borderRadius: 14,
+          borderWidth: 1,
+          borderColor: colors.primary,
+          padding: 12,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.18,
+          shadowRadius: 14,
+          elevation: 12,
+        },
+        animStyle,
+      ]}
     >
-      <View
-        className="w-[3px]"
-        style={{ backgroundColor: category?.color ?? "#38BDF8" }}
-      />
-      <View className="flex-1 p-4">
-        <View className="mb-2 flex-row items-start justify-between">
-          <Text
-            className="flex-1 pr-3 text-[15px] font-semibold leading-[22px]"
-            style={{ color: colors.text, letterSpacing: -0.2 }}
-            numberOfLines={2}
-          >
-            {note.title}
-          </Text>
-          <Text
-            className="mt-0.5 text-xs"
-            style={{ color: colors.textTertiary }}
-          >
-            {note.createdAt.toLocaleDateString("ko-KR", {
-              month: "short",
-              day: "numeric",
-            })}
-          </Text>
+      <Text
+        style={{
+          fontSize: 14,
+          fontWeight: "600",
+          color: colors.text,
+          letterSpacing: -0.2,
+          marginBottom: 4,
+        }}
+        numberOfLines={2}
+      >
+        {note.title}
+      </Text>
+      {note.rawContent.trim().length > 0 && (
+        <Text
+          style={{ fontSize: 12, color: colors.textTertiary, lineHeight: 18 }}
+          numberOfLines={2}
+        >
+          {note.rawContent}
+        </Text>
+      )}
+      {note.tags.length > 0 && (
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+          {note.tags.slice(0, 2).map((tag) => (
+            <View
+              key={tag}
+              style={{
+                backgroundColor: colors.primarySoft,
+                borderRadius: 8,
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+              }}
+            >
+              <Text style={{ color: colors.primary, fontSize: 10, fontWeight: "500" }}>
+                #{tag}
+              </Text>
+            </View>
+          ))}
         </View>
-        {note.tags.length > 0 && (
-          <View className="flex-row flex-wrap" style={{ gap: 5 }}>
-            {note.tags.map((tag) => (
-              <View
-                key={tag}
-                className="rounded-full px-2.5 py-0.5"
-                style={{ backgroundColor: colors.primarySoft }}
-              >
-                <Text
-                  className="text-xs font-medium"
-                  style={{ color: colors.primary }}
-                >
-                  #{tag}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
-    </TouchableOpacity>
+      )}
+    </Animated.View>
   );
 }
 
-function SearchResultCard({
-  note,
-  colors,
-  onPress,
-}: {
+// ─── Kanban card ──────────────────────────────────────────────────────────────
+
+interface KanbanCardProps {
   note: Note;
-  colors: ReturnType<typeof useAppTheme>["colors"];
-  onPress: () => void;
-}) {
-  const { getCategoryById } = useCategoryStore();
-  const cat = getCategoryById(note.categoryId);
+  isDraggingThis: boolean;
+  dragX: SharedValue<number>;
+  dragY: SharedValue<number>;
+  onDragStart: (note: Note, ox: number, oy: number, w: number, h: number) => void;
+  onDrop: (cardX: number, cardY: number) => void;
+  onDragCancel: () => void;
+}
+
+function KanbanCard({
+  note,
+  isDraggingThis,
+  dragX,
+  dragY,
+  onDragStart,
+  onDrop,
+  onDragCancel,
+}: KanbanCardProps) {
+  const { colors } = useAppTheme();
+  const originX = useSharedValue(0);
+  const originY = useSharedValue(0);
+  const cardW = useSharedValue(COLUMN_WIDTH - 24);
+  const cardH = useSharedValue(80);
+
+  const navigate = useCallback(() => {
+    router.push(`/note/${note.id}`);
+  }, [note.id]);
+
+  const notifyDragStart = useCallback(
+    (ox: number, oy: number, w: number, h: number) => {
+      onDragStart(note, ox, oy, w, h);
+    },
+    [note, onDragStart]
+  );
+
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .activateAfterLongPress(400)
+        .onBegin((e) => {
+          originX.value = e.absoluteX - e.x;
+          originY.value = e.absoluteY - e.y;
+        })
+        .onStart(() => {
+          dragX.value = originX.value;
+          dragY.value = originY.value;
+          runOnJS(notifyDragStart)(
+            originX.value,
+            originY.value,
+            cardW.value,
+            cardH.value
+          );
+        })
+        .onUpdate((e) => {
+          dragX.value = originX.value + e.translationX;
+          dragY.value = originY.value + e.translationY;
+        })
+        .onEnd(() => {
+          runOnJS(onDrop)(dragX.value, dragY.value);
+        })
+        .onFinalize(() => {
+          runOnJS(onDragCancel)();
+        }),
+    [notifyDragStart, onDrop, onDragCancel]
+  );
+
+  const tapGesture = useMemo(
+    () =>
+      Gesture.Tap().onEnd(() => {
+        runOnJS(navigate)();
+      }),
+    [navigate]
+  );
+
+  const composed = useMemo(
+    () => Gesture.Race(tapGesture, panGesture),
+    [tapGesture, panGesture]
+  );
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.75}
-      onPress={onPress}
-      style={{
-        marginHorizontal: 16,
-        marginBottom: 10,
-        borderRadius: 14,
-        backgroundColor: colors.surface,
-        padding: 14,
-        borderWidth: 0.5,
-        borderColor: colors.border,
-      }}
-      testID={`search-result-${note.id}`}
-    >
-      <View
+    <GestureDetector gesture={composed}>
+      <Animated.View
+        onLayout={(e) => {
+          cardW.value = e.nativeEvent.layout.width;
+          cardH.value = e.nativeEvent.layout.height;
+        }}
         style={{
-          flexDirection: "row",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          marginBottom: 6,
+          backgroundColor: colors.surface,
+          borderRadius: 14,
+          borderWidth: 0.5,
+          borderColor: colors.border,
+          padding: 12,
+          marginBottom: 8,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.04,
+          shadowRadius: 4,
+          elevation: 1,
+          opacity: isDraggingThis ? 0 : 1,
         }}
       >
         <Text
           style={{
-            flex: 1,
-            paddingRight: 10,
             fontSize: 14,
             fontWeight: "600",
             color: colors.text,
             letterSpacing: -0.2,
-            lineHeight: 20,
+            marginBottom: 4,
           }}
           numberOfLines={2}
         >
           {note.title}
         </Text>
-        {cat && (
-          <View
+
+        {note.rawContent.trim().length > 0 && (
+          <Text
             style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 4,
-              backgroundColor: colors.surfaceElevated,
-              borderRadius: 10,
-              paddingHorizontal: 7,
-              paddingVertical: 3,
+              fontSize: 12,
+              color: colors.textTertiary,
+              lineHeight: 18,
+              marginBottom: 8,
             }}
+            numberOfLines={3}
           >
-            <Text style={{ fontSize: 10 }}>{cat.icon}</Text>
-            <Text
-              style={{
-                fontSize: 10,
-                fontWeight: "600",
-                color: colors.textTertiary,
-              }}
-            >
-              {cat.name}
-            </Text>
+            {note.rawContent}
+          </Text>
+        )}
+
+        {note.tags.length > 0 && (
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginBottom: 6 }}>
+            {note.tags.slice(0, 2).map((tag) => (
+              <View
+                key={tag}
+                style={{
+                  backgroundColor: colors.primarySoft,
+                  borderRadius: 8,
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                }}
+              >
+                <Text style={{ color: colors.primary, fontSize: 10, fontWeight: "500" }}>
+                  #{tag}
+                </Text>
+              </View>
+            ))}
+            {note.tags.length > 2 && (
+              <Text style={{ fontSize: 10, color: colors.textTertiary, alignSelf: "center" }}>
+                +{note.tags.length - 2}
+              </Text>
+            )}
           </View>
         )}
-      </View>
-      {note.tags.length > 0 && (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 5 }}>
-          {note.tags.map((tag) => (
-            <Text
-              key={tag}
-              style={{ fontSize: 11, fontWeight: "500", color: colors.primary }}
-            >
-              #{tag}
-            </Text>
-          ))}
+
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Text style={{ fontSize: 10, color: colors.textTertiary }}>
+            {note.createdAt.toLocaleDateString("ko-KR", {
+              month: "numeric",
+              day: "numeric",
+            })}
+          </Text>
+          <Ionicons name="reorder-three-outline" size={14} color={colors.textTertiary} />
         </View>
-      )}
-    </TouchableOpacity>
+      </Animated.View>
+    </GestureDetector>
   );
 }
 
-export default function BoardScreen() {
-  const theme = useAppTheme();
-  const { colors, isDark } = theme;
-  const { categories } = useCategoryStore();
-  const { notes } = useChatStore();
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
-    categories[0]?.id ?? null,
-  );
-  const [searchActive, setSearchActive] = useState(false);
-  const [query, setQuery] = useState("");
-  const searchInputRef = useRef<TextInput>(null);
-  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
-  const detailSheetRef = useRef<NoteDetailSheetRef>(null);
+// ─── Kanban column ────────────────────────────────────────────────────────────
 
-  const openDetail = (note: Note) => {
-    setSelectedNote(note);
-    detailSheetRef.current?.expand();
-  };
+interface KanbanColumnProps {
+  category: Category;
+  notes: Note[];
+  draggingNoteId: string | null;
+  isDragging: boolean;
+  dragX: SharedValue<number>;
+  dragY: SharedValue<number>;
+  onDragStart: (note: Note, ox: number, oy: number, w: number, h: number) => void;
+  onDrop: (cardX: number, cardY: number) => void;
+  onDragCancel: () => void;
+  boardHeight: number;
+}
 
-  const uncategorized = notes.filter((n) => n.categoryId === null);
-
-  const categoryFiltered =
-    selectedCategoryId === "__uncategorized__"
-      ? uncategorized
-      : notes.filter((n) => n.categoryId === selectedCategoryId);
-
-  const searchFiltered = query.trim()
-    ? notes.filter((n) => {
-        const q = query.toLowerCase();
-        return (
-          n.rawContent.toLowerCase().includes(q) ||
-          n.title.toLowerCase().includes(q) ||
-          n.tags.some((t) => t.toLowerCase().includes(q))
-        );
-      })
-    : notes;
-
-  const displayNotes = searchActive ? searchFiltered : categoryFiltered;
-
-  const selectedCategory =
-    selectedCategoryId === "__uncategorized__"
-      ? null
-      : categories.find((c) => c.id === selectedCategoryId);
-
-  function openSearch() {
-    setSearchActive(true);
-    setTimeout(() => searchInputRef.current?.focus(), 50);
-  }
-
-  function closeSearch() {
-    setSearchActive(false);
-    setQuery("");
-  }
+function KanbanColumn({
+  category,
+  notes,
+  draggingNoteId,
+  isDragging,
+  dragX,
+  dragY,
+  onDragStart,
+  onDrop,
+  onDragCancel,
+  boardHeight,
+}: KanbanColumnProps) {
+  const { colors } = useAppTheme();
+  const colBg = COLUMN_COLORS[category.name] ?? colors.surfaceElevated;
 
   return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      edges={["top"]}
+    <View
+      style={{
+        width: COLUMN_WIDTH,
+        height: boardHeight,
+        backgroundColor: colBg,
+        borderRadius: 18,
+        padding: 12,
+        borderWidth: 0.5,
+        borderColor: colors.border,
+      }}
     >
-      <StatusBar style={isDark ? "light" : "dark"} />
-
-      {/* Header */}
       <View
         style={{
-          paddingHorizontal: 20,
-          paddingTop: 14,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 12,
           paddingBottom: 10,
           borderBottomWidth: 0.5,
           borderBottomColor: colors.border,
         }}
       >
-        {searchActive ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <View
-              style={{
-                flex: 1,
-                flexDirection: "row",
-                alignItems: "center",
-                backgroundColor: colors.surface,
-                borderRadius: 12,
-                paddingHorizontal: 12,
-                paddingVertical: 9,
-                gap: 8,
-                borderWidth: 1,
-                borderColor: colors.border,
-              }}
-            >
-              <Ionicons
-                name="search-outline"
-                size={15}
-                color={colors.textTertiary}
-              />
-              <TextInput
-                ref={searchInputRef}
-                value={query}
-                onChangeText={setQuery}
-                placeholder="키워드, 태그, 제목으로 검색"
-                placeholderTextColor={colors.textTertiary}
-                style={{ flex: 1, color: colors.text, fontSize: 14 }}
-                testID="search-input"
-                returnKeyType="search"
-              />
-              {query.length > 0 && (
-                <TouchableOpacity onPress={() => setQuery("")}>
-                  <Ionicons
-                    name="close-circle"
-                    size={15}
-                    color={colors.textTertiary}
-                  />
-                </TouchableOpacity>
-              )}
-            </View>
-            <TouchableOpacity onPress={closeSearch} activeOpacity={0.7}>
-              <Text
-                style={{
-                  color: colors.primary,
-                  fontSize: 14,
-                  fontWeight: "600",
-                }}
-              >
-                취소
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <View>
-              <Text
-                style={{
-                  color: colors.text,
-                  fontSize: 22,
-                  fontWeight: "800",
-                  letterSpacing: -0.8,
-                }}
-              >
-                보드
-              </Text>
-              <Text
-                style={{
-                  color: colors.textTertiary,
-                  fontSize: 11,
-                  marginTop: 1,
-                }}
-              >
-                카테고리별 아이디어
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={openSearch}
-              activeOpacity={0.75}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                backgroundColor: colors.surface,
-                alignItems: "center",
-                justifyContent: "center",
-                borderWidth: 1,
-                borderColor: colors.border,
-              }}
-              testID="search-toggle"
-            >
-              <Ionicons
-                name="search-outline"
-                size={17}
-                color={colors.textTertiary}
-              />
-            </TouchableOpacity>
-          </View>
-        )}
+        <Text style={{ fontSize: 18 }}>{category.icon}</Text>
+        <Text
+          style={{
+            flex: 1,
+            fontSize: 14,
+            fontWeight: "700",
+            color: colors.text,
+            letterSpacing: -0.3,
+          }}
+        >
+          {category.name}
+        </Text>
+        <View
+          style={{
+            backgroundColor: colors.surface,
+            borderRadius: 10,
+            paddingHorizontal: 8,
+            paddingVertical: 2,
+            borderWidth: 0.5,
+            borderColor: colors.border,
+          }}
+        >
+          <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: "600" }}>
+            {notes.length}
+          </Text>
+        </View>
       </View>
 
-      {/* Category chips — hidden during search */}
-      {!searchActive && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{
-            borderBottomWidth: 0.5,
-            borderBottomColor: colors.border,
-            height: 46,
-            flexGrow: 0,
-          }}
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingTop: 0,
-            paddingBottom: 0,
-            gap: 8,
-            alignItems: "center",
-          }}
-          testID="category-tabs"
-        >
-          {categories.map((cat) => {
-            const count = notes.filter((n) => n.categoryId === cat.id).length;
-            const isActive = selectedCategoryId === cat.id;
-            return (
-              <TouchableOpacity
-                key={cat.id}
-                onPress={() => setSelectedCategoryId(cat.id)}
-                activeOpacity={0.75}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  borderRadius: 17,
-                  paddingHorizontal: 14,
-                  height: 34,
-                  backgroundColor: isActive ? colors.primary : colors.surfaceElevated,
-                  borderWidth: 1,
-                  borderColor: isActive ? colors.primary : colors.border,
-                  gap: 4,
-                }}
-                testID={`category-tab-${cat.id}`}
-              >
-                <Text style={{ fontSize: 11, lineHeight: 16 }}>{cat.icon}</Text>
-                <Text
-                  style={{
-                    fontSize: 12,
-                    fontWeight: "600",
-                    color: isActive ? colors.surface : colors.textSecondary,
-                    lineHeight: 17,
-                  }}
-                >
-                  {cat.name}
-                </Text>
-                {count > 0 && (
-                  <Text
-                    style={{
-                      fontSize: 10,
-                      fontWeight: "700",
-                      color: isActive ? colors.surface : colors.textTertiary,
-                      lineHeight: 17,
-                    }}
-                  >
-                    {count}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            );
-          })}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        nestedScrollEnabled
+        scrollEnabled={!isDragging}
+        contentContainerStyle={{ paddingBottom: 8 }}
+      >
+        {notes.length === 0 ? (
+          <View
+            style={{
+              borderWidth: 1.5,
+              borderStyle: "dashed",
+              borderColor: colors.border,
+              borderRadius: 12,
+              paddingVertical: 28,
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <Text style={{ fontSize: 20 }}>✦</Text>
+            <Text style={{ fontSize: 11, color: colors.textTertiary }}>비어있어요</Text>
+          </View>
+        ) : (
+          notes.map((note) => (
+            <KanbanCard
+              key={note.id}
+              note={note}
+              isDraggingThis={draggingNoteId === note.id}
+              dragX={dragX}
+              dragY={dragY}
+              onDragStart={onDragStart}
+              onDrop={onDrop}
+              onDragCancel={onDragCancel}
+            />
+          ))
+        )}
+      </ScrollView>
+    </View>
+  );
+}
 
-          {uncategorized.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setSelectedCategoryId("__uncategorized__")}
-              activeOpacity={0.75}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                borderRadius: 17,
-                paddingHorizontal: 14,
-                height: 34,
-                backgroundColor:
-                  selectedCategoryId === "__uncategorized__"
-                    ? colors.primary
-                    : colors.surfaceElevated,
-                borderWidth: 1,
-                borderColor:
-                  selectedCategoryId === "__uncategorized__"
-                    ? colors.primary
-                    : colors.border,
-                gap: 4,
-              }}
-              testID="category-tab-uncategorized"
-            >
-              <Text style={{ fontSize: 11, lineHeight: 16 }}>📥</Text>
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontWeight: "600",
-                  color:
-                    selectedCategoryId === "__uncategorized__"
-                      ? colors.surface
-                      : colors.textSecondary,
-                  lineHeight: 16,
-                }}
-              >
-                미분류
-              </Text>
+// ─── Board screen ─────────────────────────────────────────────────────────────
+
+export default function BoardScreen() {
+  const { colors } = useAppTheme();
+  const { categories } = useCategoryStore();
+  const { notes, updateNoteCategory } = useChatStore();
+  const folderSheetRef = useRef<FolderFormSheetRef>(null);
+  const [query, setQuery] = useState("");
+  const [boardHeight, setBoardHeight] = useState(480);
+
+  // Drag state
+  const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
+  const [draggingNote, setDraggingNote] = useState<Note | null>(null);
+  const [dragCardWidth, setDragCardWidth] = useState(COLUMN_WIDTH - 24);
+  const draggingNoteRef = useRef<Note | null>(null);
+  const dragCardWidthRef = useRef(COLUMN_WIDTH - 24);
+  const dragX = useSharedValue(0);
+  const dragY = useSharedValue(0);
+
+  // Horizontal scroll tracking for drop detection
+  const hScrollRef = useRef<ScrollView>(null);
+  const scrollViewScreenX = useRef(0);
+  const scrollOffset = useRef(0);
+
+  const categoriesRef = useRef(categories);
+  categoriesRef.current = categories;
+
+  const confirmedNotes = notes.filter((n) => n.confirmed !== false);
+
+  const filteredNotes = query.trim()
+    ? confirmedNotes.filter((n) => {
+        const q = query.toLowerCase();
+        return (
+          n.title.toLowerCase().includes(q) ||
+          n.rawContent.toLowerCase().includes(q) ||
+          n.tags.some((t) => t.toLowerCase().includes(q))
+        );
+      })
+    : confirmedNotes;
+
+  const notesFor = (categoryId: string) =>
+    filteredNotes
+      .filter((n) => n.categoryId === categoryId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+  const handleDragStart = useCallback(
+    (note: Note, _ox: number, _oy: number, w: number, _h: number) => {
+      draggingNoteRef.current = note;
+      dragCardWidthRef.current = w;
+      setDraggingNote(note);
+      setDraggingNoteId(note.id);
+      setDragCardWidth(w);
+    },
+    []
+  );
+
+  const cleanupDrag = useCallback(() => {
+    if (draggingNoteRef.current === null) return;
+    draggingNoteRef.current = null;
+    setDraggingNote(null);
+    setDraggingNoteId(null);
+  }, []);
+
+  const handleDrop = useCallback(
+    (cardX: number, _cardY: number) => {
+      const note = draggingNoteRef.current;
+      if (note) {
+        const centerX = cardX + dragCardWidthRef.current / 2;
+        const contentX = centerX - scrollViewScreenX.current + scrollOffset.current;
+        const colIdx = Math.floor(
+          (contentX - BOARD_PADDING) / (COLUMN_WIDTH + COLUMN_GAP)
+        );
+        const cats = categoriesRef.current;
+        if (colIdx >= 0 && colIdx < cats.length) {
+          const target = cats[colIdx];
+          if (target.id !== note.categoryId) {
+            updateNoteCategory(note.id, target.id);
+          }
+        }
+      }
+      cleanupDrag();
+    },
+    [updateNoteCategory, cleanupDrag]
+  );
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+      <StatusBar style="dark" />
+
+      {/* Header */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: 20,
+          paddingTop: 16,
+          paddingBottom: 12,
+        }}
+      >
+        <Text
+          style={{
+            fontSize: 28,
+            fontWeight: "700",
+            color: colors.text,
+            letterSpacing: -0.5,
+          }}
+        >
+          탐색
+        </Text>
+        <TouchableOpacity
+          onPress={() => folderSheetRef.current?.expand()}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 4,
+            backgroundColor: colors.surfaceElevated,
+            paddingHorizontal: 12,
+            paddingVertical: 7,
+            borderRadius: 20,
+            borderWidth: 0.5,
+            borderColor: colors.border,
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="add" size={14} color={colors.textSecondary} />
+          <Text style={{ fontSize: 13, color: colors.textSecondary, fontWeight: "600" }}>
+            폴더 추가
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Search */}
+      <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: colors.surfaceElevated,
+            borderRadius: 12,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            gap: 8,
+            borderWidth: 0.5,
+            borderColor: colors.border,
+          }}
+        >
+          <Ionicons name="search-outline" size={16} color={colors.textTertiary} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="메모 검색..."
+            placeholderTextColor={colors.textTertiary}
+            style={{ flex: 1, color: colors.text, fontSize: 14, padding: 0 }}
+            testID="search-input"
+          />
+          {query.length > 0 && (
+            <TouchableOpacity onPress={() => setQuery("")}>
+              <Ionicons name="close-circle" size={16} color={colors.textTertiary} />
             </TouchableOpacity>
           )}
-        </ScrollView>
-      )}
+        </View>
+      </View>
 
-      {/* Search hint when active and no query */}
-      {searchActive && !query.trim() && (
-        <View
-          style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
-        >
-          <Ionicons
-            name="search-outline"
-            size={36}
-            color={colors.textTertiary}
-          />
-          <Text
-            style={{ color: colors.textTertiary, fontSize: 14, marginTop: 12 }}
-          >
-            제목, 내용, 태그로 검색하세요
+      {/* Hint */}
+      {!query.trim() && confirmedNotes.length > 0 && (
+        <View style={{ paddingHorizontal: 20, marginBottom: 10 }}>
+          <Text style={{ fontSize: 11, color: colors.textTertiary }}>
+            ✦ 카드를 길게 눌러 다른 칸으로 드래그하세요
           </Text>
         </View>
       )}
 
-      {/* Notes list */}
-      {(!searchActive || query.trim()) &&
-        (displayNotes.length === 0 ? (
-          <View
-            style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
-          >
-            <Text style={{ fontSize: 40 }}>
-              {searchActive ? "🔍" : (selectedCategory?.icon ?? "📥")}
-            </Text>
-            <Text
-              style={{
-                color: colors.text,
-                fontSize: 15,
-                fontWeight: "600",
-                marginTop: 14,
-              }}
-            >
-              {searchActive
-                ? "검색 결과가 없어요"
-                : selectedCategory
-                  ? `${selectedCategory.name}에 아이디어가 없어요`
-                  : "미분류 아이디어가 없어요"}
-            </Text>
-            <Text
-              style={{ color: colors.textTertiary, fontSize: 13, marginTop: 6 }}
-            >
-              {searchActive
-                ? "다른 키워드로 검색해보세요"
-                : "캡처 탭에서 아이디어를 입력해보세요"}
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            data={displayNotes}
-            keyExtractor={(n) => n.id}
-            renderItem={({ item }) =>
-              searchActive ? (
-                <SearchResultCard note={item} colors={colors} onPress={() => openDetail(item)} />
-              ) : (
-                <NoteCard note={item} colors={colors} onPress={() => openDetail(item)} />
-              )
-            }
-            contentContainerStyle={
-              searchActive
-                ? { paddingTop: 12, paddingBottom: 16 }
-                : { paddingHorizontal: 16, paddingTop: 0, paddingBottom: 16 }
-            }
-            showsVerticalScrollIndicator={false}
-            testID="note-list"
-          />
-        ))}
+      {/* Board */}
+      <View
+        style={{ flex: 1 }}
+        onLayout={(e) => setBoardHeight(e.nativeEvent.layout.height - 16)}
+      >
+        <ScrollView
+          ref={hScrollRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          scrollEnabled={!draggingNoteId}
+          scrollEventThrottle={16}
+          onLayout={() => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (hScrollRef.current as any)?.measureInWindow((x: number) => {
+              scrollViewScreenX.current = x;
+            });
+          }}
+          onScroll={(e) => {
+            scrollOffset.current = e.nativeEvent.contentOffset.x;
+          }}
+          contentContainerStyle={{
+            paddingHorizontal: BOARD_PADDING,
+            paddingBottom: 16,
+            gap: COLUMN_GAP,
+            alignItems: "flex-start",
+          }}
+          style={{ flex: 1 }}
+        >
+          {categories.map((category) => (
+            <KanbanColumn
+              key={category.id}
+              category={category}
+              notes={notesFor(category.id)}
+              draggingNoteId={draggingNoteId}
+              isDragging={!!draggingNoteId}
+              dragX={dragX}
+              dragY={dragY}
+              onDragStart={handleDragStart}
+              onDrop={handleDrop}
+              onDragCancel={cleanupDrag}
+              boardHeight={boardHeight}
+            />
+          ))}
+        </ScrollView>
 
-      <NoteDetailSheet
-        ref={detailSheetRef}
-        note={selectedNote}
-        onClose={() => setSelectedNote(null)}
-      />
+        {/* Floating drag card */}
+        {draggingNote && (
+          <FloatingCard
+            note={draggingNote}
+            dragX={dragX}
+            dragY={dragY}
+            cardWidth={dragCardWidth}
+          />
+        )}
+      </View>
+
+      <FolderFormSheet ref={folderSheetRef} />
     </SafeAreaView>
   );
 }

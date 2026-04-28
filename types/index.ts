@@ -11,12 +11,11 @@ export interface Category {
   createdAt: Date;
 }
 
-/** 앱 시작 시 생성되는 기본 카테고리 4개 */
+/** 앱 시작 시 생성되는 기본 카테고리 3개 */
 export const DEFAULT_CATEGORIES: Omit<Category, "id" | "userId" | "createdAt">[] = [
-  { name: "초안",   color: "#F59E0B", icon: "💡", isDefault: true, sortOrder: 0 },
-  { name: "보관함", color: "#3B82F6", icon: "📦", isDefault: true, sortOrder: 1 },
-  { name: "제작중", color: "#6C63FF", icon: "🎬", isDefault: true, sortOrder: 2 },
-  { name: "완료",   color: "#43E97B", icon: "✅", isDefault: true, sortOrder: 3 },
+  { name: "초안",   color: "#9CA3AF", icon: "📄", isDefault: true, sortOrder: 0 },
+  { name: "제작중", color: "#F59E0B", icon: "✏️", isDefault: true, sortOrder: 1 },
+  { name: "완료",   color: "#22C55E", icon: "✅", isDefault: true, sortOrder: 2 },
 ];
 
 // ─── AI 처리 결과 ─────────────────────────────────────────────────────────────
@@ -64,6 +63,7 @@ export interface Note {
   derivedIdeas: DerivedIdea[];
   titleOptions: TitleOption[];
   scheduledAt: Date | null;
+  confirmed?: boolean;      // false = AI 구조화 카드로 표시, true/undefined = NoteCard
   createdAt: Date;
   updatedAt: Date;
 }

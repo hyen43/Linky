@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { supabase } from "../lib/supabase";
+import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { ChatMessage, DerivedIdea, DrillDownResult, Note } from "../types";
 import { drillDownIdea, processIdea } from "../lib/claude";
 import { useCategoryStore } from "./useCategoryStore";
@@ -30,6 +30,7 @@ function noteFromDb(row: Record<string, unknown>): Note {
     derivedIdeas: (row.derived_ideas as DerivedIdea[]) ?? [],
     titleOptions: (row.title_options as Note["titleOptions"]) ?? [],
     scheduledAt: row.scheduled_at ? new Date(row.scheduled_at as string) : null,
+    confirmed: (row.confirmed as boolean | undefined) ?? true,
     createdAt: new Date(row.created_at as string),
     updatedAt: new Date(row.updated_at as string),
   };
@@ -48,6 +49,7 @@ function noteToDb(note: Note) {
     derived_ideas: note.derivedIdeas,
     title_options: note.titleOptions,
     scheduled_at: note.scheduledAt?.toISOString() ?? null,
+    confirmed: note.confirmed ?? true,
     created_at: note.createdAt.toISOString(),
     updated_at: note.updatedAt.toISOString(),
   };
@@ -67,10 +69,17 @@ interface ChatState {
 
   initialize: () => Promise<void>;
   sendMessage: (text: string, categoryId?: string | null) => Promise<void>;
+  confirmNote: (noteId: string) => void;
+  discardNote: (noteId: string) => void;
+  deleteNote: (noteId: string) => void;
+  updateNote: (noteId: string, patch: { title?: string; content?: string; tags?: string[]; categoryId?: string | null }) => void;
+  updateNoteTitle: (noteId: string, title: string) => void;
   saveNote: (data: { title: string; content: string; tags: string[]; categoryId?: string | null }) => void;
   toggleRecording: () => void;
   updateNoteCategory: (noteId: string, categoryId: string | null) => void;
   drillDown: (noteId: string, ideaIdx: number, idea: DerivedIdea, rawContent: string) => Promise<void>;
+  generateAISuggestions: (noteId: string) => Promise<void>;
+  generatingIds: string[];
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -82,9 +91,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
   initialized: false,
   drillDownResults: {},
   drillingDownKeys: [],
+  generatingIds: [],
 
   initialize: async () => {
     if (get().initialized) return;
+
+    if (!isSupabaseConfigured) {
+      set({ initialized: true });
+      return;
+    }
 
     const userId = useAuthStore.getState().user?.id;
     const { data, error } = await supabase
@@ -97,7 +112,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     const notes = (data ?? []).map(noteFromDb);
 
-    // 기존 드릴다운 결과 복원 (drill_down_results 컬럼)
     const drillDownResults: Record<string, DrillDownResult> = {};
     for (const row of data ?? []) {
       const results = row.drill_down_results as Record<string, DrillDownResult> | null;
@@ -120,52 +134,125 @@ export const useChatStore = create<ChatState>((set, get) => ({
     };
     set((s) => ({ messages: [...s.messages, userMsg], isTyping: true }));
 
-    const result = await processIdea(text);
+    try {
+      const result = await processIdea(text);
 
-    const { categories } = useCategoryStore.getState();
-    const resolvedCategoryId =
-      categoryId ??
-      categories.find((c) => c.name === result.suggestedCategoryName)?.id ??
-      categories[0]?.id ??
-      null;
+      const { categories } = useCategoryStore.getState();
+      const resolvedCategoryId =
+        categoryId ??
+        categories.find((c) => c.name === result.suggestedCategoryName)?.id ??
+        categories[0]?.id ??
+        null;
 
-    const userId = useAuthStore.getState().user?.id ?? "local";
-    const note: Note = {
-      id: `note-${Date.now()}`,
-      userId,
-      rawContent: text,
-      summary: result.summary,
-      contentType: result.contentType,
-      tags: result.tags,
-      title: result.titleOptions[0]?.title ?? text.slice(0, 30),
-      categoryId: resolvedCategoryId,
-      derivedIdeas: result.derivedIdeas,
-      titleOptions: result.titleOptions,
-      scheduledAt: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+      const userId = useAuthStore.getState().user?.id ?? "local";
+      const now = Date.now();
+      const note: Note = {
+        id: `note-${now}`,
+        userId,
+        rawContent: text,
+        summary: result.summary,
+        contentType: result.contentType,
+        tags: result.tags,
+        title: result.titleOptions[0]?.title ?? text.slice(0, 30),
+        categoryId: resolvedCategoryId,
+        derivedIdeas: result.derivedIdeas,
+        titleOptions: result.titleOptions,
+        scheduledAt: null,
+        confirmed: false,
+        createdAt: new Date(now + 2),
+        updatedAt: new Date(now + 2),
+      };
 
-    // Supabase 저장
-    supabase.from("notes").insert(noteToDb(note)).then(({ error }) => {
-      if (error) console.warn("note insert error:", error.message);
-    });
+      const aiMsg: ChatMessage = {
+        id: msgId(),
+        role: "ai",
+        content: "⭐ AI가 정리했어요! 이렇게 저장할까요?",
+        createdAt: new Date(now + 1),
+      };
 
-    const { categories: cats } = useCategoryStore.getState();
-    const catName = cats.find((c) => c.id === resolvedCategoryId)?.name ?? "미분류";
-    const aiMsg: ChatMessage = {
-      id: msgId(),
-      role: "ai",
-      content: `저장했어요! [${catName}] 카테고리에 넣었고, 파생 아이디어 3개 만들어봤어요 👇`,
-      createdAt: new Date(Date.now() + 1),
-    };
+      set((s) => ({
+        notes: [...s.notes, note],
+        messages: [...s.messages, aiMsg],
+        isTyping: false,
+        pendingNoteId: note.id,
+      }));
+    } catch {
+      const errorMsg: ChatMessage = {
+        id: msgId(),
+        role: "ai",
+        content: "AI 처리 중 오류가 발생했어요. 다시 시도해주세요.",
+        createdAt: new Date(),
+      };
+      set((s) => ({ messages: [...s.messages, errorMsg], isTyping: false }));
+    }
+  },
 
+  confirmNote: (noteId) => {
     set((s) => ({
-      notes: [...s.notes, note],
-      messages: [...s.messages, aiMsg],
-      isTyping: false,
-      pendingNoteId: note.id,
+      notes: s.notes.map((n) =>
+        n.id === noteId ? { ...n, confirmed: true, updatedAt: new Date() } : n,
+      ),
+      pendingNoteId: s.pendingNoteId === noteId ? null : s.pendingNoteId,
     }));
+    const note = get().notes.find((n) => n.id === noteId);
+    if (note) {
+      supabase.from("notes").insert(noteToDb({ ...note, confirmed: true })).then(({ error }) => {
+        if (error) console.warn("note insert error:", error.message);
+      });
+    }
+  },
+
+  discardNote: (noteId) =>
+    set((s) => ({
+      notes: s.notes.filter((n) => n.id !== noteId),
+      pendingNoteId: s.pendingNoteId === noteId ? null : s.pendingNoteId,
+    })),
+
+  deleteNote: (noteId) => {
+    set((s) => ({
+      notes: s.notes.filter((n) => n.id !== noteId),
+      pendingNoteId: s.pendingNoteId === noteId ? null : s.pendingNoteId,
+    }));
+    supabase.from("notes").delete().eq("id", noteId).then(({ error }) => {
+      if (error) console.warn("note delete error:", error.message);
+    });
+  },
+
+  updateNote: (noteId, patch) => {
+    set((s) => ({
+      notes: s.notes.map((n) =>
+        n.id === noteId
+          ? {
+              ...n,
+              ...(patch.title !== undefined && { title: patch.title }),
+              ...(patch.content !== undefined && { rawContent: patch.content }),
+              ...(patch.tags !== undefined && { tags: patch.tags }),
+              ...(patch.categoryId !== undefined && { categoryId: patch.categoryId }),
+              updatedAt: new Date(),
+            }
+          : n,
+      ),
+    }));
+    const dbPatch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (patch.title !== undefined) dbPatch.title = patch.title;
+    if (patch.content !== undefined) dbPatch.raw_content = patch.content;
+    if (patch.tags !== undefined) dbPatch.tags = patch.tags;
+    if (patch.categoryId !== undefined) dbPatch.category_id = patch.categoryId;
+    supabase.from("notes").update(dbPatch).eq("id", noteId).then(({ error }) => {
+      if (error) console.warn("note update error:", error.message);
+    });
+  },
+
+  updateNoteTitle: (noteId, title) => {
+    set((s) => ({
+      notes: s.notes.map((n) =>
+        n.id === noteId ? { ...n, title, updatedAt: new Date() } : n,
+      ),
+    }));
+    supabase.from("notes").update({ title, updated_at: new Date().toISOString() })
+      .eq("id", noteId).then(({ error }) => {
+        if (error) console.warn("note update error:", error.message);
+      });
   },
 
   saveNote: ({ title, content, tags, categoryId = null }) => {
@@ -181,6 +268,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       derivedIdeas: [],
       titleOptions: [],
       scheduledAt: null,
+      confirmed: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -204,6 +292,42 @@ export const useChatStore = create<ChatState>((set, get) => ({
       });
   },
 
+  generateAISuggestions: async (noteId) => {
+    const note = get().notes.find((n) => n.id === noteId);
+    if (!note) return;
+    if (note.derivedIdeas.length > 0 || note.titleOptions.length > 0) return;
+    if (get().generatingIds.includes(noteId)) return;
+
+    set((s) => ({ generatingIds: [...s.generatingIds, noteId] }));
+    try {
+      const input = note.rawContent.trim() || note.title;
+      const result = await processIdea(input);
+
+      const patch = {
+        derivedIdeas: result.derivedIdeas,
+        titleOptions: result.titleOptions,
+        summary: note.summary || result.summary,
+        contentType: note.contentType === "idea" ? result.contentType : note.contentType,
+        updatedAt: new Date(),
+      };
+      set((s) => ({
+        notes: s.notes.map((n) => n.id === noteId ? { ...n, ...patch } : n),
+        generatingIds: s.generatingIds.filter((id) => id !== noteId),
+      }));
+
+      const dbPatch = {
+        derived_ideas: result.derivedIdeas,
+        title_options: result.titleOptions,
+        updated_at: patch.updatedAt.toISOString(),
+      };
+      supabase.from("notes").update(dbPatch).eq("id", noteId).then(({ error }) => {
+        if (error) console.warn("AI suggestions update error:", error.message);
+      });
+    } catch {
+      set((s) => ({ generatingIds: s.generatingIds.filter((id) => id !== noteId) }));
+    }
+  },
+
   drillDown: async (noteId, ideaIdx, idea, rawContent) => {
     const key = `${noteId}-${ideaIdx}`;
     if (get().drillDownResults[key] || get().drillingDownKeys.includes(key)) return;
@@ -218,7 +342,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
         drillingDownKeys: s.drillingDownKeys.filter((k) => k !== key),
       }));
 
-      // 해당 노트의 drill_down_results 컬럼 업데이트
       const noteResults: Record<string, DrillDownResult> = {};
       for (const [k, v] of Object.entries(newResults)) {
         if (k.startsWith(noteId)) noteResults[k] = v;
