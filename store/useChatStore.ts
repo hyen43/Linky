@@ -78,6 +78,8 @@ interface ChatState {
   toggleRecording: () => void;
   updateNoteCategory: (noteId: string, categoryId: string | null) => void;
   drillDown: (noteId: string, ideaIdx: number, idea: DerivedIdea, rawContent: string) => Promise<void>;
+  generateAISuggestions: (noteId: string) => Promise<void>;
+  generatingIds: string[];
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -89,6 +91,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   initialized: false,
   drillDownResults: {},
   drillingDownKeys: [],
+  generatingIds: [],
 
   initialize: async () => {
     if (get().initialized) return;
@@ -287,6 +290,42 @@ export const useChatStore = create<ChatState>((set, get) => ({
       .eq("id", noteId).then(({ error }) => {
         if (error) console.warn("note update error:", error.message);
       });
+  },
+
+  generateAISuggestions: async (noteId) => {
+    const note = get().notes.find((n) => n.id === noteId);
+    if (!note) return;
+    if (note.derivedIdeas.length > 0 || note.titleOptions.length > 0) return;
+    if (get().generatingIds.includes(noteId)) return;
+
+    set((s) => ({ generatingIds: [...s.generatingIds, noteId] }));
+    try {
+      const input = note.rawContent.trim() || note.title;
+      const result = await processIdea(input);
+
+      const patch = {
+        derivedIdeas: result.derivedIdeas,
+        titleOptions: result.titleOptions,
+        summary: note.summary || result.summary,
+        contentType: note.contentType === "idea" ? result.contentType : note.contentType,
+        updatedAt: new Date(),
+      };
+      set((s) => ({
+        notes: s.notes.map((n) => n.id === noteId ? { ...n, ...patch } : n),
+        generatingIds: s.generatingIds.filter((id) => id !== noteId),
+      }));
+
+      const dbPatch = {
+        derived_ideas: result.derivedIdeas,
+        title_options: result.titleOptions,
+        updated_at: patch.updatedAt.toISOString(),
+      };
+      supabase.from("notes").update(dbPatch).eq("id", noteId).then(({ error }) => {
+        if (error) console.warn("AI suggestions update error:", error.message);
+      });
+    } catch {
+      set((s) => ({ generatingIds: s.generatingIds.filter((id) => id !== noteId) }));
+    }
   },
 
   drillDown: async (noteId, ideaIdx, idea, rawContent) => {
