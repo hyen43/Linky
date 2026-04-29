@@ -1,12 +1,16 @@
 import "../global.css";
 import { useEffect } from "react";
+import { Platform } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import * as Linking from "expo-linking";
 import { useAuthStore } from "../store/useAuthStore";
 import { useCategoryStore } from "../store/useCategoryStore";
 import { useChatStore } from "../store/useChatStore";
+import { supabase } from "../lib/supabase";
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,6 +49,17 @@ export default function RootLayout() {
       useChatStore.getState().initialize();
     }
   }, [user]);
+
+  // 네이티브: OAuth 딥링크 콜백 처리 (linky://... 로 돌아올 때)
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    const sub = Linking.addEventListener("url", async ({ url }) => {
+      if (url.includes("code=") || url.includes("access_token=")) {
+        await supabase.auth.exchangeCodeForSession(url);
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

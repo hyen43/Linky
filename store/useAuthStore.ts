@@ -1,24 +1,18 @@
 import { create } from "zustand";
+import { Platform } from "react-native";
 import { Session, User } from "@supabase/supabase-js";
-import { supabase, isSupabaseConfigured } from "../lib/supabase";
+import * as WebBrowser from "expo-web-browser";
+import * as Linking from "expo-linking";
+import { supabase } from "../lib/supabase";
 import { useChatStore } from "./useChatStore";
 import { useCategoryStore } from "./useCategoryStore";
 
-// 로컬 테스트용 목 유저 (Supabase 미설정 시 자동 로그인)
-const LOCAL_USER = {
-  id: "local-user",
-  email: "local@test.com",
-  app_metadata: {},
-  user_metadata: {},
-  aud: "authenticated",
-  created_at: new Date().toISOString(),
-} as User;
+WebBrowser.maybeCompleteAuthSession();
 
 interface AuthState {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
-  isLocalMode: boolean;
 
   initialize: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -29,15 +23,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   session: null,
   isLoading: true,
-  isLocalMode: !isSupabaseConfigured,
 
   initialize: async () => {
-    if (!isSupabaseConfigured) {
-      // 키 미설정 → 로컬 목 유저로 즉시 로그인
-      set({ user: LOCAL_USER, session: null, isLoading: false });
-      return;
-    }
-
     const { data: { session } } = await supabase.auth.getSession();
     set({ session, user: session?.user ?? null, isLoading: false });
 
@@ -47,22 +34,38 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   signInWithGoogle: async () => {
-    if (!isSupabaseConfigured) {
-      set({ user: LOCAL_USER, session: null, isLoading: false });
+    if (Platform.OS === "web") {
+      await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+        },
+      });
       return;
     }
-    await supabase.auth.signInWithOAuth({
+
+    const redirectUrl = Linking.createURL("/");
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+        redirectTo: redirectUrl,
+        skipBrowserRedirect: true,
       },
     });
+
+    if (error || !data.url) return;
+
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+
+    if (result.type === "success" && result.url) {
+      const { error: sessionError } = await supabase.auth.exchangeCodeForSession(result.url);
+      if (sessionError) console.warn("OAuth session error:", sessionError.message);
+    }
   },
 
   signOut: async () => {
-    if (isSupabaseConfigured) {
-      await supabase.auth.signOut();
-    }
+    await supabase.auth.signOut();
     useChatStore.setState({
       messages: [],
       notes: [],
@@ -70,6 +73,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       pendingNoteId: null,
       drillDownResults: {},
       drillingDownKeys: [],
+      generatingIds: [],
       isTyping: false,
       isRecording: false,
     });

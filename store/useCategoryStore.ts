@@ -1,20 +1,15 @@
 import { create } from "zustand";
-import { supabase, isSupabaseConfigured } from "../lib/supabase";
+import { supabase } from "../lib/supabase";
 import { Category, DEFAULT_CATEGORIES } from "../types";
 import { useAuthStore } from "./useAuthStore";
 
-let _idCounter = 100;
-const genId = () => `cat-${++_idCounter}-${Date.now()}`;
-
-const buildDefaults = (userId = "local"): Category[] =>
+const buildDefaults = (userId: string): Category[] =>
   DEFAULT_CATEGORIES.map((c, i) => ({
     ...c,
-    id: `cat-${userId}-default-${i}`,
+    id: crypto.randomUUID(),
     userId,
     createdAt: new Date(),
   }));
-
-// ─── DB ↔ 스토어 매핑 ────────────────────────────────────────────────────────
 
 function fromDb(row: Record<string, unknown>): Category {
   return {
@@ -42,8 +37,6 @@ function toDb(cat: Category) {
   };
 }
 
-// ─── 스토어 ──────────────────────────────────────────────────────────────────
-
 interface CategoryState {
   categories: Category[];
   initialized: boolean;
@@ -64,16 +57,12 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
     if (get().initialized) return;
 
     const userId = useAuthStore.getState().user?.id;
-
-    if (!isSupabaseConfigured) {
-      set({ categories: buildDefaults(userId), initialized: true });
-      return;
-    }
+    if (!userId) return;
 
     const { data, error } = await supabase
       .from("categories")
       .select("*")
-      .eq("user_id", userId ?? "")
+      .eq("user_id", userId)
       .order("sort_order");
 
     if (error) { console.warn("categories fetch error:", error.message); return; }
@@ -88,9 +77,10 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
   },
 
   addCategory: async ({ name, color, icon }) => {
+    const userId = useAuthStore.getState().user?.id ?? "";
     const newCat: Category = {
-      id: genId(),
-      userId: useAuthStore.getState().user?.id ?? "local",
+      id: crypto.randomUUID(),
+      userId,
       name,
       color,
       icon,

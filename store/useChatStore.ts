@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { supabase, isSupabaseConfigured } from "../lib/supabase";
+import { supabase } from "../lib/supabase";
 import { ChatMessage, DerivedIdea, DrillDownResult, Note } from "../types";
 import { drillDownIdea, processIdea } from "../lib/claude";
 import { useCategoryStore } from "./useCategoryStore";
@@ -49,7 +49,6 @@ function noteToDb(note: Note) {
     derived_ideas: note.derivedIdeas,
     title_options: note.titleOptions,
     scheduled_at: note.scheduledAt?.toISOString() ?? null,
-    confirmed: note.confirmed ?? true,
     created_at: note.createdAt.toISOString(),
     updated_at: note.updatedAt.toISOString(),
   };
@@ -96,12 +95,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   initialize: async () => {
     if (get().initialized) return;
 
-    if (!isSupabaseConfigured) {
-      set({ initialized: true });
-      return;
-    }
-
     const userId = useAuthStore.getState().user?.id;
+    if (!userId) return;
     const { data, error } = await supabase
       .from("notes")
       .select("*")
@@ -147,7 +142,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const userId = useAuthStore.getState().user?.id ?? "local";
       const now = Date.now();
       const note: Note = {
-        id: `note-${now}`,
+        id: crypto.randomUUID(),
         userId,
         rawContent: text,
         summary: result.summary,
@@ -257,7 +252,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   saveNote: ({ title, content, tags, categoryId = null }) => {
     const note: Note = {
-      id: `note-${Date.now()}`,
+      id: crypto.randomUUID(),
       userId: useAuthStore.getState().user?.id ?? "local",
       rawContent: content,
       summary: content.slice(0, 60),
