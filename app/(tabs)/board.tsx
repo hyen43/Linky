@@ -1,6 +1,7 @@
-import React, { useRef, useState, useCallback, useMemo } from "react";
+import React, { useRef, useState, useCallback, useMemo, useEffect } from "react";
 import {
   Dimensions,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -441,6 +442,54 @@ export default function BoardScreen() {
   const scrollViewScreenX = useRef(0);
   const scrollOffset = useRef(0);
 
+  // Web: 마우스 드래그로 가로 스크롤
+  const isDraggingScroll = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartScrollLeft = useRef(0);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const el = (hScrollRef.current as unknown as { _nativeTag?: HTMLElement } | null)
+      ?._nativeTag ?? (hScrollRef.current as unknown as HTMLElement | null);
+    if (!el) return;
+
+    const getScrollEl = (): HTMLElement | null => {
+      if (el instanceof HTMLElement) return el;
+      return null;
+    };
+
+    const scrollEl = getScrollEl();
+    if (!scrollEl) return;
+
+    const onMouseDown = (e: MouseEvent) => {
+      isDraggingScroll.current = true;
+      dragStartX.current = e.pageX;
+      dragStartScrollLeft.current = scrollEl.scrollLeft;
+      scrollEl.style.cursor = "grabbing";
+      scrollEl.style.userSelect = "none";
+    };
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDraggingScroll.current) return;
+      const dx = e.pageX - dragStartX.current;
+      scrollEl.scrollLeft = dragStartScrollLeft.current - dx;
+    };
+    const onMouseUp = () => {
+      isDraggingScroll.current = false;
+      scrollEl.style.cursor = "grab";
+      scrollEl.style.userSelect = "";
+    };
+
+    scrollEl.style.cursor = "grab";
+    scrollEl.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      scrollEl.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, []);
+
   const categoriesRef = useRef(categories);
   categoriesRef.current = categories;
 
@@ -598,7 +647,7 @@ export default function BoardScreen() {
         <ScrollView
           ref={hScrollRef}
           horizontal
-          showsHorizontalScrollIndicator={false}
+          showsHorizontalScrollIndicator={Platform.OS === "web"}
           scrollEnabled={!draggingNoteId}
           scrollEventThrottle={16}
           onLayout={() => {

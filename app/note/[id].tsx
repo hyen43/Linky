@@ -1,5 +1,6 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   ScrollView,
   Text,
@@ -17,10 +18,68 @@ import { useDeleteNote, useUpdateNoteCategory } from "../../lib/api/useNotesMuta
 import { IdeaFormSheet, IdeaFormSheetRef } from "../../components/sheet/IdeaFormSheet";
 import type { TitleOption } from "../../types";
 
+function AISkeleton({ colors }: { colors: ReturnType<typeof import("../../lib/theme").useAppTheme>["colors"] }) {
+  return (
+    <View style={{ gap: 12, marginBottom: 32 }}>
+      {/* 헤더 스켈레톤 */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <ActivityIndicator size="small" color={colors.primary} />
+        <Text style={{ fontSize: 13, color: colors.primary, fontWeight: "600" }}>
+          AI가 분석 중이에요...
+        </Text>
+      </View>
+
+      {/* 카드 스켈레톤 */}
+      <View
+        style={{
+          backgroundColor: colors.noteBg,
+          borderRadius: 16,
+          padding: 16,
+          gap: 10,
+        }}
+      >
+        {[80, 120, 100].map((w, i) => (
+          <View
+            key={i}
+            style={{
+              height: 14,
+              width: `${w}%`,
+              backgroundColor: colors.border,
+              borderRadius: 7,
+              opacity: 0.6,
+            }}
+          />
+        ))}
+      </View>
+      <View
+        style={{
+          backgroundColor: colors.noteBg,
+          borderRadius: 16,
+          padding: 16,
+          gap: 10,
+        }}
+      >
+        {[90, 110, 95].map((w, i) => (
+          <View
+            key={i}
+            style={{
+              height: 14,
+              width: `${w}%`,
+              backgroundColor: colors.border,
+              borderRadius: 7,
+              opacity: 0.6,
+            }}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
 export default function NoteDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useAppTheme();
-  const { notes, updateNoteTitle } = useChatStore();
+  const { notes, updateNoteTitle, generateAISuggestions, generatingIds } = useChatStore();
   const { categories } = useCategoryStore();
   const deleteNote = useDeleteNote();
   const updateCategory = useUpdateNoteCategory();
@@ -28,6 +87,15 @@ export default function NoteDetailScreen() {
   const [selectedTitleIdx, setSelectedTitleIdx] = useState<number | null>(null);
 
   const note = notes.find((n) => n.id === id);
+  const isGenerating = !!id && generatingIds.includes(id);
+
+  // 노트 모드로 저장된 노트(AI 데이터 없음)이면 자동으로 AI 분석 실행
+  useEffect(() => {
+    if (!note) return;
+    if (note.derivedIdeas.length === 0 && note.titleOptions.length === 0) {
+      generateAISuggestions(note.id);
+    }
+  }, [note?.id]);
 
   if (!note) {
     return (
@@ -76,6 +144,8 @@ export default function NoteDetailScreen() {
     setSelectedTitleIdx(idx);
     updateNoteTitle(note.id, option.title);
   };
+
+  const hasAIData = note.derivedIdeas.length > 0 || note.titleOptions.length > 0;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
@@ -194,6 +264,9 @@ export default function NoteDetailScreen() {
             </Text>
           )}
 
+          {/* AI 섹션: 로딩 중 */}
+          {isGenerating && !hasAIData && <AISkeleton colors={colors} />}
+
           {/* AI 예상 타겟 */}
           {note.derivedIdeas.length > 0 && (
             <View
@@ -307,6 +380,29 @@ export default function NoteDetailScreen() {
                 })}
               </View>
             </View>
+          )}
+
+          {/* AI 데이터 없고 로딩도 아닌 경우 (AI 실패 후 재시도) */}
+          {!hasAIData && !isGenerating && (
+            <TouchableOpacity
+              onPress={() => generateAISuggestions(note.id)}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                paddingVertical: 14,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: colors.border,
+                marginBottom: 32,
+              }}
+            >
+              <Ionicons name="sparkles-outline" size={16} color={colors.primary} />
+              <Text style={{ fontSize: 14, color: colors.primary, fontWeight: "600" }}>
+                AI 추천 다시 분석하기
+              </Text>
+            </TouchableOpacity>
           )}
         </View>
       </ScrollView>

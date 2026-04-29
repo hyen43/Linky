@@ -1,10 +1,16 @@
 import "../global.css";
 import { useEffect } from "react";
-import { Stack, useRouter } from "expo-router";
+import { Platform } from "react-native";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Linking from "expo-linking";
+import { useAuthStore } from "../store/useAuthStore";
+import { useCategoryStore } from "../store/useCategoryStore";
+import { useChatStore } from "../store/useChatStore";
+import { supabase } from "../lib/supabase";
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -12,24 +18,54 @@ const queryClient = new QueryClient({
   },
 });
 
-export default function RootLayout() {
+function AuthGate() {
+  const { user, isLoading, initialize } = useAuthStore();
   const router = useRouter();
+  const segments = useSegments();
 
   useEffect(() => {
-    const timer = setTimeout(async () => {
-      const launched = await AsyncStorage.getItem("hasLaunched");
-      if (!launched) {
-        await AsyncStorage.setItem("hasLaunched", "true");
-        router.replace("/onboarding");
+    initialize();
+  }, []);
+
+  useEffect(() => {
+    if (isLoading) return;
+    const inLoginScreen = segments[0] === "login";
+    if (!user && !inLoginScreen) {
+      router.replace("/login" as never);
+    } else if (user && inLoginScreen) {
+      router.replace("/(tabs)" as never);
+    }
+  }, [user, isLoading]);
+
+  return null;
+}
+
+export default function RootLayout() {
+  const user = useAuthStore((s) => s.user);
+
+  useEffect(() => {
+    if (user) {
+      useCategoryStore.getState().initialize();
+      useChatStore.getState().initialize();
+    }
+  }, [user]);
+
+  // 네이티브: OAuth 딥링크 콜백 처리 (linky://... 로 돌아올 때)
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    const sub = Linking.addEventListener("url", async ({ url }) => {
+      if (url.includes("code=") || url.includes("access_token=")) {
+        await supabase.auth.exchangeCodeForSession(url);
       }
-    }, 0);
-    return () => clearTimeout(timer);
+    });
+    return () => sub.remove();
   }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
+          <AuthGate />
           <Stack screenOptions={{ headerShown: false }} />
         </SafeAreaProvider>
       </GestureHandlerRootView>
