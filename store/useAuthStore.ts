@@ -72,7 +72,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         options: {
           redirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
           scopes: "profile_nickname profile_image",
-          queryParams: { scope: "openid profile_nickname profile_image" },
+          queryParams: { scope: "openid profile_nickname profile_image", prompt: "login" },
         },
       });
       return;
@@ -86,7 +86,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         redirectTo: redirectUrl,
         skipBrowserRedirect: true,
         scopes: "profile_nickname profile_image",
-        queryParams: { scope: "openid profile_nickname profile_image" },
+        queryParams: { scope: "openid profile_nickname profile_image", prompt: "login" },
       },
     });
 
