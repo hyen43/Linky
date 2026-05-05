@@ -178,8 +178,8 @@ export default function MyPage() {
       Alert.alert("이름을 입력해주세요.");
       return;
     }
-    setUserName(trimmed);
-    setPlatforms(editPlatforms.length > 0 ? editPlatforms : ["기타"]);
+    setUserName(trimmed, user?.id);
+    setPlatforms(editPlatforms.length > 0 ? editPlatforms : ["기타"], user?.id);
     setShowProfileModal(false);
   };
 
@@ -193,8 +193,8 @@ export default function MyPage() {
     const timeButtons = NOTIFICATION_TIMES.map((t) => ({
       text: t.label + (notificationTime === t.value && notificationEnabled ? " ✓" : ""),
       onPress: () => {
-        setNotificationEnabled(true);
-        setNotificationTime(t.value);
+        setNotificationEnabled(true, user?.id);
+        setNotificationTime(t.value, user?.id);
       },
     }));
     Alert.alert(
@@ -205,7 +205,7 @@ export default function MyPage() {
         {
           text: notificationEnabled ? "알림 끄기" : "알림 끄는 중...",
           style: "destructive" as const,
-          onPress: () => setNotificationEnabled(false),
+          onPress: () => setNotificationEnabled(false, user?.id),
         },
         { text: "취소", style: "cancel" as const },
       ]
@@ -219,15 +219,15 @@ export default function MyPage() {
       [
         {
           text: `🌱 가볍게${whipLevel === "light" ? " ✓" : ""}`,
-          onPress: () => setWhipLevel("light"),
+          onPress: () => setWhipLevel("light", user?.id),
         },
         {
           text: `💪 보통${whipLevel === "normal" ? " ✓" : ""}`,
-          onPress: () => setWhipLevel("normal"),
+          onPress: () => setWhipLevel("normal", user?.id),
         },
         {
           text: `🔥 강하게${whipLevel === "hard" ? " ✓" : ""}`,
-          onPress: () => setWhipLevel("hard"),
+          onPress: () => setWhipLevel("hard", user?.id),
         },
         { text: "취소", style: "cancel" as const },
       ]
@@ -650,7 +650,7 @@ export default function MyPage() {
             <View style={{ paddingVertical: 14 }}>
               <Text style={{ fontSize: 13, color: colors.textTertiary }}>계정</Text>
               <Text style={{ fontSize: 14, color: colors.text, marginTop: 2 }}>
-                {user?.email ?? "-"}
+                {user?.email || user?.user_metadata?.full_name || user?.user_metadata?.name || "-"}
               </Text>
             </View>
             <View style={{ height: 0.5, backgroundColor: colors.border }} />

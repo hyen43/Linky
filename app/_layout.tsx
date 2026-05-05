@@ -9,6 +9,7 @@ import * as Linking from "expo-linking";
 import { useAuthStore } from "../store/useAuthStore";
 import { useCategoryStore } from "../store/useCategoryStore";
 import { useChatStore } from "../store/useChatStore";
+import { useSettingsStore } from "../store/useSettingsStore";
 import { supabase } from "../lib/supabase";
 
 
@@ -47,6 +48,8 @@ export default function RootLayout() {
     if (user) {
       useCategoryStore.getState().initialize();
       useChatStore.getState().initialize();
+      const fallbackName = user.user_metadata?.full_name ?? user.user_metadata?.name ?? undefined;
+      useSettingsStore.getState().initializeFromDB(user.id, fallbackName);
     }
   }, [user]);
 

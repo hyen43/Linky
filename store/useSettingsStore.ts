@@ -1,6 +1,5 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { profilesApi } from "../lib/api/profilesApi";
 
 export type WhipLevel = "light" | "normal" | "hard";
 
@@ -8,32 +7,72 @@ interface SettingsState {
   userName: string;
   platforms: string[];
   notificationEnabled: boolean;
-  notificationTime: string; // "HH:MM" 24h
+  notificationTime: string;
   whipLevel: WhipLevel;
-  setUserName: (name: string) => void;
-  setPlatforms: (platforms: string[]) => void;
-  setNotificationEnabled: (enabled: boolean) => void;
-  setNotificationTime: (time: string) => void;
-  setWhipLevel: (level: WhipLevel) => void;
+  initialized: boolean;
+  initializeFromDB: (userId: string, fallbackName?: string) => Promise<void>;
+  setUserName: (name: string, userId?: string) => void;
+  setPlatforms: (platforms: string[], userId?: string) => void;
+  setNotificationEnabled: (enabled: boolean, userId?: string) => void;
+  setNotificationTime: (time: string, userId?: string) => void;
+  setWhipLevel: (level: WhipLevel, userId?: string) => void;
 }
 
-export const useSettingsStore = create<SettingsState>()(
-  persist(
-    (set) => ({
-      userName: "크리에이터",
-      platforms: ["유튜브"],
-      notificationEnabled: true,
-      notificationTime: "09:00",
-      whipLevel: "normal",
-      setUserName: (userName) => set({ userName }),
-      setPlatforms: (platforms) => set({ platforms }),
-      setNotificationEnabled: (notificationEnabled) => set({ notificationEnabled }),
-      setNotificationTime: (notificationTime) => set({ notificationTime }),
-      setWhipLevel: (whipLevel) => set({ whipLevel }),
-    }),
-    {
-      name: "settings-store",
-      storage: createJSONStorage(() => AsyncStorage),
+export const useSettingsStore = create<SettingsState>((set, get) => ({
+  userName: "크리에이터",
+  platforms: ["유튜브"],
+  notificationEnabled: true,
+  notificationTime: "09:00",
+  whipLevel: "normal",
+  initialized: false,
+
+  initializeFromDB: async (userId, fallbackName) => {
+    const profile = await profilesApi.get(userId);
+    if (profile) {
+      set({
+        userName: profile.user_name,
+        platforms: profile.platforms,
+        notificationEnabled: profile.notification_enabled,
+        notificationTime: profile.notification_time,
+        whipLevel: profile.whip_level as WhipLevel,
+        initialized: true,
+      });
+    } else {
+      const userName = fallbackName ?? "크리에이터";
+      set({ userName, initialized: true });
+      await profilesApi.upsert({
+        id: userId,
+        user_name: userName,
+        platforms: get().platforms,
+        whip_level: get().whipLevel,
+        notification_enabled: get().notificationEnabled,
+        notification_time: get().notificationTime,
+      });
     }
-  )
-);
+  },
+
+  setUserName: (userName, userId) => {
+    set({ userName });
+    if (userId) profilesApi.upsert({ id: userId, user_name: userName });
+  },
+
+  setPlatforms: (platforms, userId) => {
+    set({ platforms });
+    if (userId) profilesApi.upsert({ id: userId, platforms });
+  },
+
+  setNotificationEnabled: (notificationEnabled, userId) => {
+    set({ notificationEnabled });
+    if (userId) profilesApi.upsert({ id: userId, notification_enabled: notificationEnabled });
+  },
+
+  setNotificationTime: (notificationTime, userId) => {
+    set({ notificationTime });
+    if (userId) profilesApi.upsert({ id: userId, notification_time: notificationTime });
+  },
+
+  setWhipLevel: (whipLevel, userId) => {
+    set({ whipLevel });
+    if (userId) profilesApi.upsert({ id: userId, whip_level: whipLevel });
+  },
+}));
