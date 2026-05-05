@@ -6,7 +6,7 @@ import { useAuthStore } from "../store/useAuthStore";
 import { useAppTheme } from "../lib/theme";
 
 export default function LoginScreen() {
-  const { signInWithGoogle } = useAuthStore();
+  const { signInWithGoogle, signInWithKakao } = useAuthStore();
   const { colors } = useAppTheme();
 
   return (
@@ -34,7 +34,26 @@ export default function LoginScreen() {
           </Text>
         </View>
 
-        <View style={{ width: "100%" }}>
+        <View style={{ width: "100%", gap: 12 }}>
+          <TouchableOpacity
+            onPress={signInWithKakao}
+            activeOpacity={0.8}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 10,
+              paddingVertical: 16,
+              borderRadius: 16,
+              backgroundColor: "#FEE500",
+            }}
+          >
+            <Text style={{ fontSize: 20 }}>💬</Text>
+            <Text style={{ color: "#191600", fontSize: 15, fontWeight: "700", letterSpacing: -0.3 }}>
+              카카오로 계속하기
+            </Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             onPress={signInWithGoogle}
             activeOpacity={0.8}

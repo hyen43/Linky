@@ -16,6 +16,7 @@ interface AuthState {
 
   initialize: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  signInWithKakao: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -61,6 +62,41 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (result.type === "success" && result.url) {
       const { error: sessionError } = await supabase.auth.exchangeCodeForSession(result.url);
       if (sessionError) console.warn("OAuth session error:", sessionError.message);
+    }
+  },
+
+  signInWithKakao: async () => {
+    if (Platform.OS === "web") {
+      await supabase.auth.signInWithOAuth({
+        provider: "kakao",
+        options: {
+          redirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+          scopes: "profile_nickname profile_image",
+          queryParams: { scope: "openid profile_nickname profile_image" },
+        },
+      });
+      return;
+    }
+
+    const redirectUrl = Linking.createURL("/");
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "kakao",
+      options: {
+        redirectTo: redirectUrl,
+        skipBrowserRedirect: true,
+        scopes: "profile_nickname profile_image",
+        queryParams: { scope: "openid profile_nickname profile_image" },
+      },
+    });
+
+    if (error || !data.url) return;
+
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+
+    if (result.type === "success" && result.url) {
+      const { error: sessionError } = await supabase.auth.exchangeCodeForSession(result.url);
+      if (sessionError) console.warn("Kakao OAuth session error:", sessionError.message);
     }
   },
 
