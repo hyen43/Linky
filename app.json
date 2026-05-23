@@ -2,7 +2,7 @@
   "expo": {
     "name": "포킹노트 - Pokingnote",
     "slug": "linky",
-    "version": "0.0.3",
+    "version": "0.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.pokingnote.app",
-      "buildNumber": "3",
+      "buildNumber": "2",
       "infoPlist": {
         "NSUserNotificationUsageDescription": "아이디어 기록 알림을 받기 위해 알림 권한이 필요합니다."
       },
