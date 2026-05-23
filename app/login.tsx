@@ -27,10 +27,10 @@ export default function LoginScreen() {
             <Text style={{ fontSize: 40 }}>💡</Text>
           </View>
           <Text style={{ color: colors.text, fontSize: 28, fontWeight: "800", letterSpacing: -1 }}>
-            Linky
+            Pokingnote
           </Text>
           <Text style={{ color: colors.textTertiary, fontSize: 14, textAlign: "center", lineHeight: 20 }}>
-            아이디어를 떠올리기만 해.{"\n"}나머지는 링키가 다 한다.
+            아이디어를 떠올리기만 해.{"\n"}나머지는 포킹노트가 다 한다.
           </Text>
         </View>
 

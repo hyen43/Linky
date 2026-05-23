@@ -125,8 +125,8 @@ async function callOpenRouter(
     headers: {
       Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://linky.app",
-      "X-Title": "Linky",
+      "HTTP-Referer": "https://pokingnote.app",
+      "X-Title": "Pokingnote",
     },
     body: JSON.stringify({
       model: MODEL,
@@ -465,8 +465,8 @@ async function callDrillDownOpenRouter(
     headers: {
       Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://linky.app",
-      "X-Title": "Linky",
+      "HTTP-Referer": "https://pokingnote.app",
+      "X-Title": "Pokingnote",
     },
     body: JSON.stringify({
       model: MODEL,

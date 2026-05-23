@@ -55,7 +55,7 @@ function getWhipMessage(
   if (weekTotal === 0) {
     if (whipLevel === "light") return "📝 이번 주는 조용하네요.\n아이디어가 생기면 언제든 적어보세요!";
     if (whipLevel === "hard") return "📝 이번 주 0개! 지금 당장\n아이디어 하나 적어보세요!";
-    return "📝 이번 주는 조용하네요.\n링키에 아이디어를 적어볼까요?";
+    return "📝 이번 주는 조용하네요.\n포킹노트에 아이디어를 적어볼까요?";
   }
   if (weekDone >= 3) {
     if (whipLevel === "light") return `🎉 이번 주 ${weekDone}개 완료!\n훌륭한 한 주였어요!`;
@@ -218,9 +218,9 @@ export default function MyPage() {
         .filter(Boolean)
         .join("\n");
     });
-    const message = `# Linky 노트 내보내기\n총 ${confirmedNotes.length}개\n\n` + lines.join("\n\n---\n\n");
+    const message = `# 포킹노트 내보내기\n총 ${confirmedNotes.length}개\n\n` + lines.join("\n\n---\n\n");
     try {
-      await Share.share({ title: "Linky 노트", message });
+      await Share.share({ title: "포킹노트", message });
     } catch {
       // user cancelled
     }
@@ -229,7 +229,7 @@ export default function MyPage() {
   const handleVersionInfo = () => {
     Alert.alert(
       "버전 정보",
-      "Linky v1.0.0\n\nAI 아이디어 인큐베이션 앱\n© 2026 Linky Team",
+      "Pokingnote v0.0.1\n\nAI 아이디어 인큐베이션 앱\n© 2026 Pokingnote Team",
       [{ text: "확인" }]
     );
   };

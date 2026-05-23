@@ -13,7 +13,7 @@ const msgId = () => `msg-${++_msgId}-${Date.now()}`;
 const WELCOME: ChatMessage = {
   id: "welcome",
   role: "ai",
-  content: "안녕하세요! 링키예요 👋\n아이디어가 떠올랐나요? 편하게 말해주세요.",
+  content: "안녕하세요! 포킹노트예요 👋\n아이디어가 떠올랐나요? 편하게 말해주세요.",
   createdAt: new Date(0),
 };
 

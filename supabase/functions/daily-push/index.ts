@@ -49,7 +49,7 @@ Deno.serve(async () => {
     );
 
     if (body) {
-      messages.push({ to: profile.push_token, title: "링키 💡", body });
+      messages.push({ to: profile.push_token, title: "포킹노트 💡", body });
     }
   }
 

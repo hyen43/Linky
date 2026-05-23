@@ -9,7 +9,7 @@ import { useAppTheme } from "../lib/theme";
 const STEPS = [
   {
     title: "아이디어를 입력하세요",
-    description: "키워드 하나만 남겨도 좋아요. 링키가 흐름을 읽고 기획 초안을 만들어줘요.",
+    description: "키워드 하나만 남겨도 좋아요. 포킹노트가 흐름을 읽고 기획 초안을 만들어줘요.",
     icon: "bulb-outline" as const,
   },
   {
@@ -79,9 +79,9 @@ export default function OnboardingScreen() {
             onPress={() => router.replace("/(tabs)")}
             style={{ height: 50, borderRadius: 14, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }}
             accessibilityRole="button"
-            accessibilityLabel="링키 시작하기"
+            accessibilityLabel="포킹노트 시작하기"
           >
-            <Text style={{ color: colors.surface, fontSize: 15, fontWeight: "700" }}>링키 시작하기</Text>
+            <Text style={{ color: colors.surface, fontSize: 15, fontWeight: "700" }}>포킹노트 시작하기</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
