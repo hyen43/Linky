@@ -49,6 +49,11 @@ export interface DrillDownResult {
   cta: string;              // 마무리 CTA
 }
 
+export interface TextContent {
+  contentOutline: string[];  // 인스타/블로그 본문 구성
+  hashtags: string[];        // 추천 해시태그 (# 기호 제외)
+}
+
 // ─── Note ────────────────────────────────────────────────────────────────────
 
 export interface Note {

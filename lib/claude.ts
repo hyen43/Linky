@@ -3,6 +3,7 @@ import {
   ContentType,
   DerivedIdea,
   DrillDownResult,
+  TextContent,
   TitleOption,
 } from "../types";
 
@@ -452,6 +453,75 @@ export async function drillDownIdea(
     };
   }
   return callDrillDownOpenRouter(idea, rawContent);
+}
+
+// ─── 인스타/블로그 텍스트 콘텐츠 생성 ──────────────────────────────────────────
+
+const TEXT_CONTENT_PROMPT = `당신은 SNS·블로그 콘텐츠 전략가입니다.
+아래 아이디어를 기반으로 인스타그램/블로그/SNS용 콘텐츠 구성안을 JSON으로 반환하세요.
+다른 텍스트 없이 JSON만 반환하세요:
+{
+  "contentOutline": ["도입: ...", "본문1: ...", "본문2: ...", "마무리: ..."],
+  "hashtags": ["해시태그1", "해시태그2", "해시태그3", "해시태그4", "해시태그5"]
+}
+contentOutline은 3-5단계, hashtags는 5-10개. hashtags에 # 기호 없이 텍스트만 넣으세요.`;
+
+export async function generateTextContent(
+  text: string,
+  platforms: string[] = ["기타"],
+): Promise<TextContent> {
+  if (!OPENROUTER_API_KEY) {
+    await new Promise((r) => setTimeout(r, 800));
+    return buildMockTextContent(text);
+  }
+  return callTextContentOpenRouter(text, platforms);
+}
+
+async function callTextContentOpenRouter(
+  text: string,
+  platforms: string[],
+): Promise<TextContent> {
+  const platformNames = platforms.join(", ");
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://linky.app",
+      "X-Title": "Linky",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 400,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: TEXT_CONTENT_PROMPT },
+        { role: "user", content: `플랫폼: ${platformNames}\n아이디어: ${text}` },
+      ],
+    }),
+  });
+  if (!res.ok) throw new Error(`OpenRouter ${res.status}`);
+  const data = await res.json();
+  const content: string = data.choices?.[0]?.message?.content ?? "";
+  if (!content) throw new Error("빈 응답");
+  const json = content
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```\s*$/, "")
+    .trim();
+  return JSON.parse(json) as TextContent;
+}
+
+function buildMockTextContent(text: string): TextContent {
+  const words = text.replace(/\s+/g, " ").trim().slice(0, 20);
+  return {
+    contentOutline: [
+      `도입: "${words}"에 대해 이야기해볼게요`,
+      "본문1: 핵심 포인트 3가지 공유",
+      "본문2: 실제 경험과 사례 소개",
+      "마무리: 여러분의 경험도 댓글로 남겨주세요",
+    ],
+    hashtags: ["콘텐츠", "크리에이터", "아이디어", "링키", "일상기록"],
+  };
 }
 
 async function callDrillDownOpenRouter(

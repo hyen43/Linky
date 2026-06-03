@@ -15,7 +15,7 @@ type ListItem =
   | { kind: "note"; data: Note };
 
 export default function App() {
-  const { messages, notes, isTyping } = useChatStore();
+  const { messages, notes } = useChatStore();
   const listRef = useRef<FlatList>(null);
   const sheetRef = useRef<IdeaFormSheetRef>(null);
 
@@ -61,7 +61,7 @@ export default function App() {
           renderItem={renderItem}
           contentContainerStyle={{ padding: 16, paddingBottom: 8 }}
           onContentSizeChange={scrollToBottom}
-          ListFooterComponent={isTyping ? <TypingIndicator /> : null}
+          ListFooterComponent={null}
         />
 
         {/* Input bar */}

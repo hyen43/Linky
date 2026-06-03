@@ -6,8 +6,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { ChatBubble } from "../../components/chat/ChatBubble";
 import { NoteCard } from "../../components/chat/NoteCard";
-import { AIStructureCard } from "../../components/chat/AIStructureCard";
-import { NoteCardSkeleton } from "../../components/chat/NoteCardSkeleton";
 import { InputBar } from "../../components/chat/InputBar";
 import { IdeaFormSheet, IdeaFormSheetRef, EditingNote } from "../../components/sheet/IdeaFormSheet";
 import { useChatStore } from "../../store/useChatStore";
@@ -22,7 +20,6 @@ import type { ChatMessage, Note } from "../../types";
 type ListItem =
   | { kind: "message"; data: ChatMessage }
   | { kind: "note"; data: Note }
-  | { kind: "pending"; data: Note }
   | { kind: "divider"; label: string; id: string };
 
 
@@ -41,8 +38,7 @@ function getDateLabel(date: Date): string {
 
 type SortableItem =
   | { kind: "message"; data: ChatMessage; sortTime: number }
-  | { kind: "note"; data: Note; sortTime: number }
-  | { kind: "pending"; data: Note; sortTime: number };
+  | { kind: "note"; data: Note; sortTime: number };
 
 function buildItems(messages: ChatMessage[], notes: Note[]): ListItem[] {
   const base: SortableItem[] = [
@@ -52,7 +48,7 @@ function buildItems(messages: ChatMessage[], notes: Note[]): ListItem[] {
       sortTime: m.createdAt.getTime(),
     })),
     ...notes.map((n) => ({
-      kind: (n.confirmed === false ? "pending" : "note") as "pending" | "note",
+      kind: "note" as const,
       data: n,
       sortTime: n.createdAt.getTime(),
     })),
@@ -141,7 +137,7 @@ function EmptyStateHint() {
           lineHeight: 20,
         }}
       >
-        아래 입력창에 키워드 하나만 적어도 OK{"\n"}AI가 콘텐츠 아이디어로 정리해줄게요
+        아래 입력창에 키워드 하나만 적어도 OK{"\n"}노트를 탭하면 AI 추천을 받을 수 있어요
       </Text>
     </View>
   );
@@ -149,7 +145,7 @@ function EmptyStateHint() {
 
 export default function NoteScreen() {
   const { colors } = useAppTheme();
-  const { messages, notes, isTyping, sendMessage, confirmNote } = useChatStore();
+  const { messages, notes, sendMessage } = useChatStore();
   const { categories } = useCategoryStore();
   const { inputMode, setInputMode } = useSettingsStore();
   const { user } = useAuthStore();
@@ -203,15 +199,6 @@ export default function NoteScreen() {
   const renderItem = ({ item }: { item: ListItem }) => {
     if (item.kind === "divider") return <DateDivider label={item.label} />;
     if (item.kind === "message") return <ChatBubble message={item.data} />;
-    if (item.kind === "pending") {
-      return (
-        <AIStructureCard
-          note={item.data}
-          onConfirm={() => confirmNote(item.data.id)}
-          onEdit={() => handleEdit(item.data)}
-        />
-      );
-    }
     if (item.kind === "note") {
       const folder = categories.find((c) => c.id === item.data.categoryId);
       return (
@@ -285,7 +272,6 @@ export default function NoteScreen() {
           renderItem={renderItem}
           contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 12 }}
           onContentSizeChange={scrollToBottom}
-          ListFooterComponent={isTyping ? <NoteCardSkeleton /> : null}
           ListHeaderComponent={!hasUserContent ? <EmptyStateHint /> : null}
           showsVerticalScrollIndicator={false}
           testID="chat-list"
@@ -304,7 +290,7 @@ export default function NoteScreen() {
       <IdeaFormSheet
         ref={sheetRef}
         onClose={() => setEditingNote(null)}
-        onSaved={(noteId) => confirmNote(noteId)}
+        onSaved={() => scrollToBottom()}
         editingNote={editingNote}
         defaultCategoryId={selectedCategoryId}
       />

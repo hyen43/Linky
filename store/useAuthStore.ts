@@ -197,11 +197,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       messages: [],
       notes: [],
       initialized: false,
-      pendingNoteId: null,
       drillDownResults: {},
       drillingDownKeys: [],
       generatingIds: [],
-      isTyping: false,
       isRecording: false,
     });
     useCategoryStore.setState({ categories: [], initialized: false });
@@ -214,11 +212,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       messages: [],
       notes: [],
       initialized: false,
-      pendingNoteId: null,
       drillDownResults: {},
       drillingDownKeys: [],
       generatingIds: [],
-      isTyping: false,
       isRecording: false,
     });
     useCategoryStore.setState({ categories: [], initialized: false });

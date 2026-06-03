@@ -572,7 +572,7 @@ export default function MyPage() {
         <View style={{ paddingHorizontal: 20, marginBottom: 20 }}>
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={openProfileModal}
+            onPress={() => router.push("/profile")}
             style={{
               backgroundColor: colors.surfaceElevated,
               borderRadius: 16,

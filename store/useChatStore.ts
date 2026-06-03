@@ -61,17 +61,14 @@ function noteToDb(note: Note) {
 interface ChatState {
   messages: ChatMessage[];
   notes: Note[];
-  pendingNoteId: string | null;
-  isTyping: boolean;
   isRecording: boolean;
   initialized: boolean;
   drillDownResults: Record<string, DrillDownResult>;
   drillingDownKeys: string[];
+  generatingIds: string[];
 
   initialize: () => Promise<void>;
-  sendMessage: (text: string, categoryId?: string | null) => Promise<void>;
-  confirmNote: (noteId: string) => void;
-  discardNote: (noteId: string) => void;
+  sendMessage: (text: string, categoryId?: string | null) => void;
   deleteNote: (noteId: string) => void;
   updateNote: (noteId: string, patch: { title?: string; content?: string; tags?: string[]; categoryId?: string | null }) => void;
   updateNoteTitle: (noteId: string, title: string) => void;
@@ -80,14 +77,11 @@ interface ChatState {
   updateNoteCategory: (noteId: string, categoryId: string | null) => void;
   drillDown: (noteId: string, ideaIdx: number, idea: DerivedIdea, rawContent: string) => Promise<void>;
   generateAISuggestions: (noteId: string) => Promise<void>;
-  generatingIds: string[];
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
   messages: [WELCOME],
   notes: [],
-  pendingNoteId: null,
-  isTyping: false,
   isRecording: false,
   initialized: false,
   drillDownResults: {},
@@ -122,94 +116,59 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ notes, drillDownResults, initialized: true });
   },
 
-  sendMessage: async (text, categoryId = null) => {
+  sendMessage: (text, categoryId = null) => {
+    const { categories } = useCategoryStore.getState();
+    const resolvedCategoryId =
+      categoryId ??
+      categories.find((c) => c.name === "초안")?.id ??
+      categories[0]?.id ??
+      null;
+
+    const userId = useAuthStore.getState().user?.id ?? "local";
+    const now = new Date();
+    const note: Note = {
+      id: generateId(),
+      userId,
+      rawContent: text,
+      summary: text.slice(0, 20),
+      contentType: "idea",
+      tags: [],
+      title: text.length > 40 ? text.slice(0, 40) + "…" : text,
+      categoryId: resolvedCategoryId,
+      derivedIdeas: [],
+      titleOptions: [],
+      scheduledAt: null,
+      confirmed: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+
     const userMsg: ChatMessage = {
       id: msgId(),
       role: "user",
       content: text,
-      createdAt: new Date(),
+      createdAt: now,
     };
-    set((s) => ({ messages: [...s.messages, userMsg], isTyping: true }));
+    const aiMsg: ChatMessage = {
+      id: msgId(),
+      role: "ai",
+      content: "저장됐어요! 탭해서 AI 추천을 확인해보세요 ✨",
+      createdAt: new Date(now.getTime() + 1),
+    };
 
-    try {
-      const platforms = useSettingsStore.getState().platforms;
-      const result = await processIdea(text, platforms);
-
-      const { categories } = useCategoryStore.getState();
-      const resolvedCategoryId =
-        categoryId ??
-        categories.find((c) => c.name === result.suggestedCategoryName)?.id ??
-        categories[0]?.id ??
-        null;
-
-      const userId = useAuthStore.getState().user?.id ?? "local";
-      const now = Date.now();
-      const note: Note = {
-        id: generateId(),
-        userId,
-        rawContent: text,
-        summary: result.summary,
-        contentType: result.contentType,
-        tags: result.tags,
-        title: result.titleOptions[0]?.title ?? text.slice(0, 30),
-        categoryId: resolvedCategoryId,
-        derivedIdeas: result.derivedIdeas,
-        titleOptions: result.titleOptions,
-        scheduledAt: null,
-        confirmed: false,
-        createdAt: new Date(now + 2),
-        updatedAt: new Date(now + 2),
-      };
-
-      const aiMsg: ChatMessage = {
-        id: msgId(),
-        role: "ai",
-        content: "⭐ AI가 정리했어요! 이렇게 저장할까요?",
-        createdAt: new Date(now + 1),
-      };
-
-      set((s) => ({
-        notes: [...s.notes, note],
-        messages: [...s.messages, aiMsg],
-        isTyping: false,
-        pendingNoteId: note.id,
-      }));
-    } catch {
-      const errorMsg: ChatMessage = {
-        id: msgId(),
-        role: "ai",
-        content: "AI 처리 중 오류가 발생했어요. 다시 시도해주세요.",
-        createdAt: new Date(),
-      };
-      set((s) => ({ messages: [...s.messages, errorMsg], isTyping: false }));
-    }
-  },
-
-  confirmNote: (noteId) => {
     set((s) => ({
-      notes: s.notes.map((n) =>
-        n.id === noteId ? { ...n, confirmed: true, updatedAt: new Date() } : n,
-      ),
-      pendingNoteId: s.pendingNoteId === noteId ? null : s.pendingNoteId,
+      messages: [...s.messages, userMsg, aiMsg],
+      notes: [...s.notes, note],
     }));
-    const note = get().notes.find((n) => n.id === noteId);
-    if (note) {
-      supabase.from("notes").insert(noteToDb({ ...note, confirmed: true })).then(({ error }) => {
-        if (error) console.warn("note insert error:", error.message);
-      });
-    }
-  },
 
-  discardNote: (noteId) =>
-    set((s) => ({
-      notes: s.notes.filter((n) => n.id !== noteId),
-      pendingNoteId: s.pendingNoteId === noteId ? null : s.pendingNoteId,
-    })),
+    supabase.from("notes").insert(noteToDb(note)).then(({ error }) => {
+      if (error) console.warn("note insert error:", error.message);
+    });
+  },
 
   deleteNote: (noteId) => {
     set((s) => ({
       notes: s.notes.filter((n) => n.id !== noteId),
-      pendingNoteId: s.pendingNoteId === noteId ? null : s.pendingNoteId,
     }));
     supabase.from("notes").delete().eq("id", noteId).then(({ error }) => {
       if (error) console.warn("note delete error:", error.message);

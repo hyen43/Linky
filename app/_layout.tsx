@@ -5,6 +5,7 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Linking from "expo-linking";
 import { useAuthStore } from "../store/useAuthStore";
 import { useCategoryStore } from "../store/useCategoryStore";
@@ -32,10 +33,15 @@ function AuthGate() {
   useEffect(() => {
     if (isLoading) return;
     const inLoginScreen = segments[0] === "login";
-    if (!user && !inLoginScreen) {
+    const inTutorial = segments[0] === "onboarding";
+    const inProfile = segments[0] === "profile";
+
+    if (!user && !inLoginScreen && !inTutorial && !inProfile) {
       router.replace("/login" as never);
     } else if (user && inLoginScreen) {
-      router.replace("/(tabs)" as never);
+      AsyncStorage.getItem("hasSeenTutorial").then((seen) => {
+        router.replace(seen ? "/(tabs)" : "/onboarding");
+      });
     }
   }, [user, isLoading]);
 
