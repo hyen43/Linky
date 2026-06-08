@@ -5,6 +5,7 @@ import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as Crypto from "expo-crypto";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../lib/supabase";
 import { useChatStore } from "./useChatStore";
 import { useCategoryStore } from "./useCategoryStore";
@@ -193,6 +194,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       throw new Error(body.error ?? "탈퇴 처리 중 오류가 발생했습니다.");
     }
 
+    await AsyncStorage.multiRemove(["hasSeenTutorial", "hasSetupProfile"]);
     useChatStore.setState({
       messages: [],
       notes: [],
@@ -208,6 +210,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   signOut: async () => {
     await supabase.auth.signOut();
+    await AsyncStorage.multiRemove(["hasSeenTutorial", "hasSetupProfile"]);
     useChatStore.setState({
       messages: [],
       notes: [],
