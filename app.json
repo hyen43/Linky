@@ -2,12 +2,12 @@
   "expo": {
     "name": "PokingNote",
     "slug": "linky",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
-    "scheme": "linky",
+    "scheme": "pokingnote",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.linky.ios",
-      "buildNumber": "6",
+      "buildNumber": "1",
       "infoPlist": {
         "NSUserNotificationUsageDescription": "아이디어 기록 알림을 받기 위해 알림 권한이 필요합니다."
       },
@@ -48,7 +48,8 @@
         {
           "iosDisplayInForeground": true
         }
-      ]
+      ],
+      "./plugins/withIosOnlySettings"
     ],
     "extra": {
       "router": {},
