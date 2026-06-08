@@ -6,8 +6,8 @@ const { withXcodeProject } = require("@expo/config-plugins");
  * - Mac/XR designed for iPhone/iPad 비활성화
  * prebuild --clean 후에도 설정이 유지됩니다.
  */
-module.exports = withXcodeProject((config, xcodeProject) => {
-  const project = xcodeProject.modResults;
+module.exports = withXcodeProject((config) => {
+  const project = config.modResults;
 
   const settings = {
     SUPPORTS_MACCATALYST: "NO",
@@ -17,8 +17,8 @@ module.exports = withXcodeProject((config, xcodeProject) => {
   };
 
   ["Debug", "Release"].forEach((buildConfig) => {
-    const config = project.pbxXCBuildConfigurationSection();
-    Object.values(config).forEach((entry) => {
+    const section = project.pbxXCBuildConfigurationSection();
+    Object.values(section).forEach((entry) => {
       if (entry.name === buildConfig && entry.buildSettings) {
         Object.entries(settings).forEach(([key, value]) => {
           entry.buildSettings[key] = value;
@@ -27,5 +27,5 @@ module.exports = withXcodeProject((config, xcodeProject) => {
     });
   });
 
-  return xcodeProject;
+  return config;
 });
