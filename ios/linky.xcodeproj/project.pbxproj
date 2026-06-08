@@ -368,7 +368,7 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = com.linky.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = com.pokingnote.app;
 				PRODUCT_NAME = PokingNote;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "linky/linky-Bridging-Header.h";
@@ -401,7 +401,7 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
-				PRODUCT_BUNDLE_IDENTIFIER = com.linky.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = com.pokingnote.app;
 				PRODUCT_NAME = PokingNote;
 				SWIFT_OBJC_BRIDGING_HEADER = "linky/linky-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
