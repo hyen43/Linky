@@ -4,6 +4,7 @@ import {
   Alert,
   ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -18,7 +19,7 @@ import { useAppTheme } from "../../lib/theme";
 import { useDeleteNote, useUpdateNoteCategory } from "../../lib/api/useNotesMutation";
 import { generateTextContent } from "../../lib/claude";
 import { IdeaFormSheet, IdeaFormSheetRef } from "../../components/sheet/IdeaFormSheet";
-import type { TextContent, TitleOption } from "../../types";
+import type { TitleOption } from "../../types";
 
 function AISkeleton({ colors }: { colors: ReturnType<typeof import("../../lib/theme").useAppTheme>["colors"] }) {
   return (
@@ -73,6 +74,8 @@ export default function NoteDetailScreen() {
     drillDown,
     drillDownResults,
     drillingDownKeys,
+    textContentCache,
+    cacheTextContent,
   } = useChatStore();
   const { categories } = useCategoryStore();
   const { platforms } = useSettingsStore();
@@ -81,12 +84,11 @@ export default function NoteDetailScreen() {
   const sheetRef = useRef<IdeaFormSheetRef>(null);
 
   const [selectedTitleIdx, setSelectedTitleIdx] = useState<number | null>(null);
-  const [textContent, setTextContent] = useState<TextContent | null>(null);
   const [generatingText, setGeneratingText] = useState(false);
   const [movedToProgress, setMovedToProgress] = useState(false);
 
+  const textContent = id ? (textContentCache[id] ?? null) : null;
   const drillDownTriggered = useRef(false);
-  const textContentFetched = useRef(false);
 
   const note = notes.find((n) => n.id === id);
   const isGeneratingAI = !!id && generatingIds.includes(id);
@@ -116,13 +118,12 @@ export default function NoteDetailScreen() {
     drillDown(note.id, 0, note.derivedIdeas[0], note.rawContent);
   }, [note?.derivedIdeas.length]);
 
-  // 인스타/블로그: 텍스트 콘텐츠 생성
+  // 인스타/블로그: 텍스트 콘텐츠 생성 (캐시에 없을 때만)
   useEffect(() => {
-    if (!note || !isTextBased || textContentFetched.current) return;
-    textContentFetched.current = true;
+    if (!note || !isTextBased || textContent !== null) return;
     setGeneratingText(true);
     generateTextContent(note.rawContent, platforms)
-      .then(setTextContent)
+      .then((result) => cacheTextContent(note.id, result))
       .catch(console.warn)
       .finally(() => setGeneratingText(false));
   }, [note?.id]);
@@ -240,16 +241,25 @@ export default function NoteDetailScreen() {
         <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 40 }}>
 
           {/* 제목 */}
-          <Text style={{
-            fontSize: 24,
-            fontWeight: "700",
-            color: colors.text,
-            letterSpacing: -0.5,
-            marginBottom: 12,
-            lineHeight: 32,
-          }}>
-            {note.title}
-          </Text>
+          {note.title.trim().length > 0 && (
+            <TextInput
+              editable={false}
+              multiline
+              scrollEnabled={false}
+              value={note.title}
+              style={{
+                fontSize: 24,
+                fontWeight: "700",
+                color: colors.text,
+                letterSpacing: -0.5,
+                marginBottom: 12,
+                lineHeight: 32,
+                padding: 0,
+                borderWidth: 0,
+                backgroundColor: "transparent",
+              }}
+            />
+          )}
 
           {/* 상태 배지 + 날짜 + 폴더 이동 */}
           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12, gap: 8 }}>
@@ -290,14 +300,21 @@ export default function NoteDetailScreen() {
 
           {/* 본문 */}
           {note.rawContent.trim().length > 0 && (
-            <Text style={{
-              fontSize: 15,
-              color: colors.textSecondary,
-              lineHeight: 24,
-              marginBottom: 28,
-            }}>
-              {note.rawContent}
-            </Text>
+            <TextInput
+              editable={false}
+              multiline
+              scrollEnabled={false}
+              value={note.rawContent}
+              style={{
+                fontSize: 15,
+                color: colors.textSecondary,
+                lineHeight: 24,
+                marginBottom: 28,
+                padding: 0,
+                borderWidth: 0,
+                backgroundColor: "transparent",
+              }}
+            />
           )}
 
           {/* 구분선 */}
@@ -346,9 +363,13 @@ export default function NoteDetailScreen() {
                 <>
                   {/* 오프닝 훅 */}
                   <SectionCard title="🎣 오프닝 훅 (첫 3초)" colors={colors}>
-                    <Text style={{ fontSize: 14, color: colors.text, lineHeight: 22 }}>
-                      "{youtubeGuide.openingHook}"
-                    </Text>
+                    <TextInput
+                      editable={false}
+                      multiline
+                      scrollEnabled={false}
+                      value={`"${youtubeGuide.openingHook}"`}
+                      style={{ fontSize: 14, color: colors.text, lineHeight: 22, padding: 0, borderWidth: 0, backgroundColor: "transparent" }}
+                    />
                   </SectionCard>
 
                   {/* 영상 구성 */}
@@ -367,9 +388,13 @@ export default function NoteDetailScreen() {
                           }}>
                             <Text style={{ color: "#FFF", fontSize: 11, fontWeight: "700" }}>{i + 1}</Text>
                           </View>
-                          <Text style={{ flex: 1, fontSize: 14, color: colors.textSecondary, lineHeight: 22 }}>
-                            {step}
-                          </Text>
+                          <TextInput
+                            editable={false}
+                            multiline
+                            scrollEnabled={false}
+                            value={step}
+                            style={{ flex: 1, fontSize: 14, color: colors.textSecondary, lineHeight: 22, padding: 0, borderWidth: 0, backgroundColor: "transparent" }}
+                          />
                         </View>
                       ))}
                     </View>
@@ -377,15 +402,23 @@ export default function NoteDetailScreen() {
 
                   {/* 썸네일 + CTA */}
                   <SectionCard title="🖼 썸네일 컨셉" colors={colors}>
-                    <Text style={{ fontSize: 14, color: colors.textSecondary, lineHeight: 22 }}>
-                      {youtubeGuide.thumbnailConcept}
-                    </Text>
+                    <TextInput
+                      editable={false}
+                      multiline
+                      scrollEnabled={false}
+                      value={youtubeGuide.thumbnailConcept}
+                      style={{ fontSize: 14, color: colors.textSecondary, lineHeight: 22, padding: 0, borderWidth: 0, backgroundColor: "transparent" }}
+                    />
                   </SectionCard>
 
                   <SectionCard title="📢 마무리 CTA" colors={colors}>
-                    <Text style={{ fontSize: 14, color: colors.textSecondary, lineHeight: 22 }}>
-                      {youtubeGuide.cta}
-                    </Text>
+                    <TextInput
+                      editable={false}
+                      multiline
+                      scrollEnabled={false}
+                      value={youtubeGuide.cta}
+                      style={{ fontSize: 14, color: colors.textSecondary, lineHeight: 22, padding: 0, borderWidth: 0, backgroundColor: "transparent" }}
+                    />
                   </SectionCard>
 
                   {/* 제작 시작 액션 버튼 */}
@@ -462,18 +495,16 @@ export default function NoteDetailScreen() {
                             paddingVertical: 12,
                             flexDirection: "row",
                             alignItems: "center",
-                            justifyContent: "space-between",
+                            gap: 8,
                           }}
                         >
-                          <Text style={{
-                            flex: 1,
-                            fontSize: 14,
-                            color: colors.text,
-                            lineHeight: 20,
-                            marginRight: 12,
-                          }}>
-                            {option.title}
-                          </Text>
+                          <TextInput
+                            editable={false}
+                            multiline
+                            scrollEnabled={false}
+                            value={option.title}
+                            style={{ flex: 1, fontSize: 14, color: colors.text, lineHeight: 20, padding: 0, borderWidth: 0, backgroundColor: "transparent" }}
+                          />
                           <TouchableOpacity
                             onPress={() => handleSelectTitle(option, idx)}
                             accessibilityRole="button"
@@ -530,9 +561,13 @@ export default function NoteDetailScreen() {
                       {textContent.contentOutline.map((item, i) => (
                         <View key={i} style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
                           <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "700", marginTop: 1 }}>•</Text>
-                          <Text style={{ flex: 1, fontSize: 14, color: colors.textSecondary, lineHeight: 22 }}>
-                            {item}
-                          </Text>
+                          <TextInput
+                            editable={false}
+                            multiline
+                            scrollEnabled={false}
+                            value={item}
+                            style={{ flex: 1, fontSize: 14, color: colors.textSecondary, lineHeight: 22, padding: 0, borderWidth: 0, backgroundColor: "transparent" }}
+                          />
                         </View>
                       ))}
                     </View>
@@ -551,9 +586,11 @@ export default function NoteDetailScreen() {
                               paddingVertical: 5,
                             }}
                           >
-                            <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "500" }}>
-                              #{tag}
-                            </Text>
+                            <TextInput
+                              editable={false}
+                              value={`#${tag}`}
+                              style={{ color: colors.primary, fontSize: 13, fontWeight: "500", padding: 0, borderWidth: 0, backgroundColor: "transparent" }}
+                            />
                           </View>
                         ))}
                       </View>
@@ -683,6 +720,9 @@ export default function NoteDetailScreen() {
           tags: note.tags,
           categoryId: note.categoryId,
         }}
+        aiTitleOptions={note.titleOptions}
+        aiDerivedIdeas={note.derivedIdeas}
+        aiTextContent={textContent ?? undefined}
       />
     </SafeAreaView>
   );

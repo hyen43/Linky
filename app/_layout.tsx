@@ -5,14 +5,23 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Linking from "expo-linking";
+import * as Notifications from "expo-notifications";
 import { useAuthStore } from "../store/useAuthStore";
 import { useCategoryStore } from "../store/useCategoryStore";
 import { useChatStore } from "../store/useChatStore";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { registerPushToken } from "../lib/notifications";
+import { profilesApi } from "../lib/api/profilesApi";
 import { supabase } from "../lib/supabase";
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 
 const queryClient = new QueryClient({
@@ -54,9 +63,9 @@ function AuthGate() {
     prevUserId.current = user.id;
 
     if (justLoggedIn) {
-      // 신규 로그인: 튜토리얼 여부 확인 후 라우팅
-      AsyncStorage.getItem("hasSeenTutorial").then((seen) => {
-        router.replace((seen ? "/(tabs)" : "/onboarding") as never);
+      // 신규 가입 여부를 profiles row 존재로 판단
+      profilesApi.get(user.id).then((profile) => {
+        router.replace((profile ? "/(tabs)" : "/onboarding") as never);
       });
     } else if (inLoginScreen) {
       // 앱 재시작 시 세션이 남아 있는 경우 로그인 화면을 건너뜀

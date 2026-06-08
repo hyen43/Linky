@@ -236,7 +236,7 @@ export default function NoteScreen() {
             letterSpacing: -0.5,
           }}
         >
-          Linky
+          PokingNote
         </Text>
         <TouchableOpacity
           onPress={openSheet}

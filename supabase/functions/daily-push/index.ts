@@ -49,7 +49,7 @@ Deno.serve(async () => {
     );
 
     if (body) {
-      messages.push({ to: profile.push_token, title: "링키 💡", body });
+      messages.push({ to: profile.push_token, title: "PokingNote 💡", body });
     }
   }
 
@@ -102,8 +102,8 @@ async function generateMessage(
     headers: {
       Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://linky.app",
-      "X-Title": "Linky",
+      "HTTP-Referer": "https://pokingnote.app",
+      "X-Title": "PokingNote",
     },
     body: JSON.stringify({
       model: MODEL,

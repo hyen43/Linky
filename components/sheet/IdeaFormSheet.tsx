@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -17,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSaveNote, useUpdateNote } from "../../lib/api/useNotesMutation";
 import { useCategoryStore } from "../../store/useCategoryStore";
 import { useAppTheme } from "../../lib/theme";
+import type { DerivedIdea, TextContent, TitleOption } from "../../types";
 
 export interface EditingNote {
   id: string;
@@ -31,12 +33,15 @@ interface Props {
   onSaved?: (noteId: string) => void;
   editingNote?: EditingNote | null;
   defaultCategoryId?: string | null;
+  aiTitleOptions?: TitleOption[];
+  aiDerivedIdeas?: DerivedIdea[];
+  aiTextContent?: TextContent;
 }
 
 export type IdeaFormSheetRef = BottomSheet;
 
 export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
-  ({ onClose, onSaved, editingNote, defaultCategoryId }, ref) => {
+  ({ onClose, onSaved, editingNote, defaultCategoryId, aiTitleOptions, aiDerivedIdeas, aiTextContent }, ref) => {
     const { colors } = useAppTheme();
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
@@ -424,6 +429,149 @@ export const IdeaFormSheet = forwardRef<IdeaFormSheetRef, Props>(
                 쉼표(,) 또는 Enter로 태그 추가 · 태그 탭하면 삭제
               </Text>
             </View>
+
+            {/* ── AI 추천 참고 (편집 모드에서만) ── */}
+            {isEditing && ((aiTitleOptions?.length ?? 0) > 0 || (aiDerivedIdeas?.length ?? 0) > 0 || !!aiTextContent) && (
+              <View style={{ gap: 12 }}>
+                <View style={{ height: 0.5, backgroundColor: colors.border }} />
+                <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary, letterSpacing: 0.5 }}>
+                  ✨ AI 추천 참고
+                </Text>
+
+                {/* 1. 콘텐츠 구성안 — 최상단 */}
+                {aiTextContent && (aiTextContent.contentOutline?.length ?? 0) > 0 && (
+                  <View style={{ gap: 6 }}>
+                    <Text style={{ fontSize: 11, color: colors.textTertiary, fontWeight: "600" }}>
+                      콘텐츠 구성안
+                    </Text>
+                    <View
+                      style={{
+                        backgroundColor: colors.surfaceElevated,
+                        borderRadius: 10,
+                        paddingHorizontal: 14,
+                        paddingVertical: 10,
+                        borderWidth: 0.5,
+                        borderColor: colors.border,
+                        gap: 8,
+                      }}
+                    >
+                      {aiTextContent.contentOutline.map((item, idx) => (
+                        <View key={idx} style={{ flexDirection: "row", gap: 6, alignItems: "flex-start" }}>
+                          <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "700", marginTop: 2 }}>•</Text>
+                          <TextInput
+                            editable={false}
+                            multiline
+                            scrollEnabled={false}
+                            value={item}
+                            style={{ flex: 1, fontSize: 12, color: colors.textSecondary, lineHeight: 18, padding: 0, borderWidth: 0, backgroundColor: "transparent" }}
+                          />
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* 2. 추천 해시태그 */}
+                {aiTextContent && (aiTextContent.hashtags?.length ?? 0) > 0 && (
+                  <View style={{ gap: 6 }}>
+                    <Text style={{ fontSize: 11, color: colors.textTertiary, fontWeight: "600" }}>
+                      추천 해시태그
+                    </Text>
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                      {aiTextContent.hashtags.map((tag) => (
+                        <View
+                          key={tag}
+                          style={{
+                            backgroundColor: colors.primarySoft,
+                            borderRadius: 10,
+                            paddingHorizontal: 10,
+                            paddingVertical: 4,
+                          }}
+                        >
+                          <TextInput
+                            editable={false}
+                            value={`#${tag}`}
+                            style={{ color: colors.primary, fontSize: 11, fontWeight: "500", padding: 0, borderWidth: 0, backgroundColor: "transparent" }}
+                          />
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* 3. 추천 제목 — 탭하면 제목 자동 입력 */}
+                {(aiTitleOptions?.length ?? 0) > 0 && (
+                  <View style={{ gap: 6 }}>
+                    <Text style={{ fontSize: 11, color: colors.textTertiary, fontWeight: "600" }}>
+                      추천 제목 (탭 → 제목 입력)
+                    </Text>
+                    {aiTitleOptions!.map((opt, idx) => (
+                      <TouchableOpacity
+                        key={idx}
+                        onPress={() => setTitle(opt.title)}
+                        activeOpacity={0.7}
+                        style={{
+                          backgroundColor: title === opt.title ? colors.primarySoft : colors.surfaceElevated,
+                          borderRadius: 10,
+                          paddingHorizontal: 14,
+                          paddingVertical: 10,
+                          borderWidth: title === opt.title ? 1 : 0.5,
+                          borderColor: title === opt.title ? colors.primary : colors.border,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <TextInput
+                          editable={false}
+                          multiline
+                          scrollEnabled={false}
+                          value={opt.title}
+                          style={{ flex: 1, fontSize: 13, color: colors.text, lineHeight: 18, padding: 0, borderWidth: 0, backgroundColor: "transparent" }}
+                        />
+                        <Text style={{ fontSize: 10, color: colors.textTertiary }}>{opt.formula}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {/* 4. AI 예상 타겟 */}
+                {(aiDerivedIdeas?.length ?? 0) > 0 && (
+                  <View style={{ gap: 6 }}>
+                    <Text style={{ fontSize: 11, color: colors.textTertiary, fontWeight: "600" }}>
+                      AI 예상 타겟
+                    </Text>
+                    {aiDerivedIdeas!.map((idea, idx) => (
+                      <View
+                        key={idx}
+                        style={{
+                          backgroundColor: colors.surfaceElevated,
+                          borderRadius: 10,
+                          paddingHorizontal: 14,
+                          paddingVertical: 10,
+                          borderWidth: 0.5,
+                          borderColor: colors.border,
+                          gap: 4,
+                        }}
+                      >
+                        <TextInput
+                          editable={false}
+                          value={idea.target}
+                          style={{ fontSize: 12, fontWeight: "600", color: colors.textSecondary, padding: 0, borderWidth: 0, backgroundColor: "transparent" }}
+                        />
+                        <TextInput
+                          editable={false}
+                          multiline
+                          scrollEnabled={false}
+                          value={idea.context}
+                          style={{ fontSize: 11, color: colors.textTertiary, lineHeight: 16, padding: 0, borderWidth: 0, backgroundColor: "transparent" }}
+                        />
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
           </View>
         </BottomSheetScrollView>
       </BottomSheet>

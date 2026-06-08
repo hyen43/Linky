@@ -126,8 +126,8 @@ async function callOpenRouter(
     headers: {
       Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://linky.app",
-      "X-Title": "Linky",
+      "HTTP-Referer": "https://pokingnote.app",
+      "X-Title": "PokingNote",
     },
     body: JSON.stringify({
       model: MODEL,
@@ -487,8 +487,8 @@ async function callTextContentOpenRouter(
     headers: {
       Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://linky.app",
-      "X-Title": "Linky",
+      "HTTP-Referer": "https://pokingnote.app",
+      "X-Title": "PokingNote",
     },
     body: JSON.stringify({
       model: MODEL,
@@ -520,7 +520,7 @@ function buildMockTextContent(text: string): TextContent {
       "본문2: 실제 경험과 사례 소개",
       "마무리: 여러분의 경험도 댓글로 남겨주세요",
     ],
-    hashtags: ["콘텐츠", "크리에이터", "아이디어", "링키", "일상기록"],
+    hashtags: ["콘텐츠", "크리에이터", "아이디어", "PokingNote", "일상기록"],
   };
 }
 
@@ -535,8 +535,8 @@ async function callDrillDownOpenRouter(
     headers: {
       Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://linky.app",
-      "X-Title": "Linky",
+      "HTTP-Referer": "https://pokingnote.app",
+      "X-Title": "PokingNote",
     },
     body: JSON.stringify({
       model: MODEL,

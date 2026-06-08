@@ -43,17 +43,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         initialized: true,
       });
     } else {
-      const userName = fallbackName ?? "크리에이터";
-      set({ userName, initialized: true });
-      await profilesApi.upsert({
-        id: userId,
-        user_name: userName,
-        platforms: get().platforms,
-        whip_level: get().whipLevel,
-        notification_enabled: get().notificationEnabled,
-        notification_time: get().notificationTime,
-        input_mode: get().inputMode,
-      });
+      // 신규 유저: 로컬 기본값만 세팅, DB 쓰기는 /profile 화면에서 처리
+      set({ userName: fallbackName ?? "크리에이터", initialized: true });
     }
   },
 

@@ -12,14 +12,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAppTheme } from "../lib/theme";
 
 const { width: SCREEN_W } = Dimensions.get("window");
-
-async function markSeen() {
-  await AsyncStorage.setItem("hasSeenTutorial", "true");
-}
 
 // ── 슬라이드 1: 채팅 화면 미리보기 ──────────────────────────────────────────
 
@@ -45,7 +40,7 @@ function ChatPreview({ colors }: { colors: ReturnType<typeof import("../lib/them
         borderBottomWidth: 0.5,
         borderBottomColor: colors.border,
       }}>
-        <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text }}>Linky</Text>
+        <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text }}>PokingNote</Text>
         <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }}>
           <Ionicons name="add" size={14} color="#fff" />
         </View>
@@ -55,7 +50,7 @@ function ChatPreview({ colors }: { colors: ReturnType<typeof import("../lib/them
       <View style={{ flex: 1, paddingHorizontal: 12, paddingTop: 10, gap: 8 }}>
         {/* AI 웰컴 버블 */}
         <View style={{ alignSelf: "flex-start", backgroundColor: colors.surfaceElevated, borderRadius: 14, paddingHorizontal: 11, paddingVertical: 7, maxWidth: "75%" }}>
-          <Text style={{ fontSize: 11, color: colors.textSecondary }}>안녕하세요! 링키예요 👋{"\n"}아이디어가 떠올랐나요?</Text>
+          <Text style={{ fontSize: 11, color: colors.textSecondary }}>안녕하세요! PokingNote예요 👋{"\n"}아이디어가 떠올랐나요?</Text>
         </View>
 
         {/* 유저 메시지 */}
@@ -310,13 +305,11 @@ export default function OnboardingScreen() {
   };
 
   const handleFinish = async () => {
-    await markSeen();
     router.replace("/profile");
   };
 
-  const handleSkip = async () => {
-    await markSeen();
-    router.replace("/(tabs)");
+  const handleSkip = () => {
+    router.replace("/profile");
   };
 
   return (
@@ -333,7 +326,7 @@ export default function OnboardingScreen() {
         paddingBottom: 4,
       }}>
         <Text style={{ fontSize: 18, fontWeight: "800", color: colors.text, letterSpacing: -0.5 }}>
-          Linky
+          PokingNote
         </Text>
         <TouchableOpacity onPress={handleSkip} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text style={{ fontSize: 14, color: colors.textTertiary, fontWeight: "600" }}>건너뛰기</Text>

@@ -16,11 +16,7 @@ export async function registerPushToken(userId: string): Promise<void> {
     });
   }
 
-  const { status: existing } = await Notifications.getPermissionsAsync();
-  const { status } = existing === "granted"
-    ? { status: existing }
-    : await Notifications.requestPermissionsAsync();
-
+  const { status } = await Notifications.getPermissionsAsync();
   if (status !== "granted") return;
 
   try {

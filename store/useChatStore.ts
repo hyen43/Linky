@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { supabase } from "../lib/supabase";
-import { ChatMessage, DerivedIdea, DrillDownResult, Note } from "../types";
+import { ChatMessage, DerivedIdea, DrillDownResult, Note, TextContent } from "../types";
 import { drillDownIdea, processIdea } from "../lib/claude";
 import { useCategoryStore } from "./useCategoryStore";
 import { useAuthStore } from "./useAuthStore";
@@ -13,7 +13,7 @@ const msgId = () => `msg-${++_msgId}-${Date.now()}`;
 const WELCOME: ChatMessage = {
   id: "welcome",
   role: "ai",
-  content: "안녕하세요! 링키예요 👋\n아이디어가 떠올랐나요? 편하게 말해주세요.",
+  content: "안녕하세요! PokingNote예요 👋\n아이디어가 떠올랐나요? 편하게 말해주세요.",
   createdAt: new Date(0),
 };
 
@@ -67,6 +67,8 @@ interface ChatState {
   drillingDownKeys: string[];
   generatingIds: string[];
 
+  textContentCache: Record<string, TextContent>;
+
   initialize: () => Promise<void>;
   sendMessage: (text: string, categoryId?: string | null) => void;
   deleteNote: (noteId: string) => void;
@@ -77,6 +79,7 @@ interface ChatState {
   updateNoteCategory: (noteId: string, categoryId: string | null) => void;
   drillDown: (noteId: string, ideaIdx: number, idea: DerivedIdea, rawContent: string) => Promise<void>;
   generateAISuggestions: (noteId: string) => Promise<void>;
+  cacheTextContent: (noteId: string, content: TextContent) => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -87,6 +90,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   drillDownResults: {},
   drillingDownKeys: [],
   generatingIds: [],
+  textContentCache: {},
 
   initialize: async () => {
     if (get().initialized) return;
@@ -104,16 +108,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const notes = (data ?? []).map(noteFromDb);
 
     const drillDownResults: Record<string, DrillDownResult> = {};
+    const textContentCache: Record<string, TextContent> = {};
     for (const row of data ?? []) {
-      const results = row.drill_down_results as Record<string, DrillDownResult> | null;
+      const results = row.drill_down_results as Record<string, unknown> | null;
       if (results) {
         for (const [k, v] of Object.entries(results)) {
-          drillDownResults[k] = v;
+          if (k.endsWith("-text")) {
+            // TextContent (콘텐츠 구성안)
+            textContentCache[k.slice(0, -5)] = v as TextContent;
+          } else {
+            drillDownResults[k] = v as DrillDownResult;
+          }
         }
       }
     }
 
-    set({ notes, drillDownResults, initialized: true });
+    set({ notes, drillDownResults, textContentCache, initialized: true });
   },
 
   sendMessage: (text, categoryId = null) => {
@@ -133,7 +143,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       summary: text.slice(0, 20),
       contentType: "idea",
       tags: [],
-      title: text.length > 40 ? text.slice(0, 40) + "…" : text,
+      title: "",
       categoryId: resolvedCategoryId,
       derivedIdeas: [],
       titleOptions: [],
@@ -149,15 +159,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       content: text,
       createdAt: now,
     };
-    const aiMsg: ChatMessage = {
-      id: msgId(),
-      role: "ai",
-      content: "저장됐어요! 탭해서 AI 추천을 확인해보세요 ✨",
-      createdAt: new Date(now.getTime() + 1),
-    };
 
     set((s) => ({
-      messages: [...s.messages, userMsg, aiMsg],
+      messages: [...s.messages, userMsg],
       notes: [...s.notes, note],
     }));
 
@@ -286,6 +290,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
+  cacheTextContent: (noteId, content) => {
+    set((s) => ({
+      textContentCache: { ...s.textContentCache, [noteId]: content },
+    }));
+    // drill_down_results jsonb에 "-text" 키로 함께 저장 (DB 마이그레이션 불필요)
+    const allDrillResults = get().drillDownResults;
+    const noteResults: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(allDrillResults)) {
+      if (k.startsWith(noteId + "-")) noteResults[k] = v;
+    }
+    noteResults[`${noteId}-text`] = content;
+    supabase.from("notes").update({ drill_down_results: noteResults })
+      .eq("id", noteId).then(({ error }) => {
+        if (error) console.warn("text content save error:", error.message);
+      });
+  },
+
   drillDown: async (noteId, ideaIdx, idea, rawContent) => {
     const key = `${noteId}-${ideaIdx}`;
     if (get().drillDownResults[key] || get().drillingDownKeys.includes(key)) return;
@@ -300,10 +321,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
         drillingDownKeys: s.drillingDownKeys.filter((k) => k !== key),
       }));
 
-      const noteResults: Record<string, DrillDownResult> = {};
+      const noteResults: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(newResults)) {
-        if (k.startsWith(noteId)) noteResults[k] = v;
+        if (k.startsWith(noteId + "-")) noteResults[k] = v;
       }
+      // textContent도 함께 보존
+      const cachedText = get().textContentCache[noteId];
+      if (cachedText) noteResults[`${noteId}-text`] = cachedText;
       supabase.from("notes").update({ drill_down_results: noteResults })
         .eq("id", noteId).then(({ error }) => {
           if (error) console.warn("drill_down update error:", error.message);

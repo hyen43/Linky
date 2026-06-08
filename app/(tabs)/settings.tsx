@@ -12,10 +12,12 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as Notifications from "expo-notifications";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import * as Linking from "expo-linking";
 import { useCategoryStore } from "../../store/useCategoryStore";
 import { useChatStore } from "../../store/useChatStore";
 import { useAuthStore } from "../../store/useAuthStore";
@@ -55,7 +57,7 @@ function getWhipMessage(
   if (weekTotal === 0) {
     if (whipLevel === "light") return "📝 이번 주는 조용하네요.\n아이디어가 생기면 언제든 적어보세요!";
     if (whipLevel === "hard") return "📝 이번 주 0개! 지금 당장\n아이디어 하나 적어보세요!";
-    return "📝 이번 주는 조용하네요.\n링키에 아이디어를 적어볼까요?";
+    return "📝 이번 주는 조용하네요.\nPokingNote에 아이디어를 적어볼까요?";
   }
   if (weekDone >= 3) {
     if (whipLevel === "light") return `🎉 이번 주 ${weekDone}개 완료!\n훌륭한 한 주였어요!`;
@@ -193,7 +195,26 @@ export default function MyPage() {
     );
   };
 
-  const handleNotificationSetting = () => setShowNotificationModal(true);
+  const handleNotificationSetting = async () => {
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status === "granted") {
+      setShowNotificationModal(true);
+      return;
+    }
+    const { status: newStatus } = await Notifications.requestPermissionsAsync();
+    if (newStatus === "granted") {
+      setShowNotificationModal(true);
+    } else {
+      Alert.alert(
+        "알림 권한이 필요해요",
+        "PokingNote 알림을 받으려면 설정에서 알림을 허용해주세요.",
+        [
+          { text: "취소", style: "cancel" },
+          { text: "설정 열기", onPress: () => Linking.openURL("app-settings:") },
+        ]
+      );
+    }
+  };
 
   const handleWhipLevel = () => setShowWhipModal(true);
 
@@ -218,9 +239,9 @@ export default function MyPage() {
         .filter(Boolean)
         .join("\n");
     });
-    const message = `# Linky 노트 내보내기\n총 ${confirmedNotes.length}개\n\n` + lines.join("\n\n---\n\n");
+    const message = `# PokingNote 노트 내보내기\n총 ${confirmedNotes.length}개\n\n` + lines.join("\n\n---\n\n");
     try {
-      await Share.share({ title: "Linky 노트", message });
+      await Share.share({ title: "PokingNote 노트", message });
     } catch {
       // user cancelled
     }
@@ -229,9 +250,34 @@ export default function MyPage() {
   const handleVersionInfo = () => {
     Alert.alert(
       "버전 정보",
-      "Linky v1.0.0\n\nAI 아이디어 인큐베이션 앱\n© 2026 Linky Team",
+      "PokingNote v1.0.0\n\nAI 아이디어 인큐베이션 앱\n© 2026 PokingNote Team",
       [{ text: "확인" }]
     );
+  };
+
+  const handleTestNotification = async () => {
+    const { status } = await Notifications.getPermissionsAsync();
+    const finalStatus = status === "granted"
+      ? status
+      : (await Notifications.requestPermissionsAsync()).status;
+
+    if (finalStatus !== "granted") {
+      Alert.alert("알림 권한 없음", "설정 > PokingNote에서 알림을 허용해주세요.");
+      return;
+    }
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "PokingNote 💡",
+        body: getWhipMessage(weekDone, weekInProgress, weekDraft, weekTotal, whipLevel).replace(/\n/g, " "),
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: 3,
+      },
+    });
+
+    Alert.alert("✅ 알림 예약 완료", "3초 후 테스트 알림이 도착해요.\n앱을 홈 화면으로 내리거나 그대로 두세요.");
   };
 
   const handleDeleteAccount = () => {
@@ -778,6 +824,12 @@ export default function MyPage() {
             label="버전 정보"
             value="v1.0.0"
             onPress={handleVersionInfo}
+          />
+          <SettingRow
+            label="알림 테스트"
+            value="3초 후 발송"
+            onPress={handleTestNotification}
+            isLast
           />
         </View>
 

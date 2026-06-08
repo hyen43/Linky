@@ -11,6 +11,7 @@ import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 import { useAuthStore } from "../store/useAuthStore";
 import { useSettingsStore } from "../store/useSettingsStore";
+import { profilesApi } from "../lib/api/profilesApi";
 import { useAppTheme } from "../lib/theme";
 
 const PLATFORM_OPTIONS = [
@@ -24,7 +25,10 @@ const PLATFORM_OPTIONS = [
 export default function ProfileScreen() {
   const { colors } = useAppTheme();
   const { user } = useAuthStore();
-  const { userName, platforms, setUserName, setPlatforms } = useSettingsStore();
+  const {
+    userName, platforms, whipLevel, notificationEnabled, notificationTime, inputMode,
+    setUserName, setPlatforms,
+  } = useSettingsStore();
 
   const [name, setName] = useState(userName === "크리에이터" ? "" : userName);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(
@@ -37,15 +41,31 @@ export default function ProfileScreen() {
     );
   };
 
-  const handleSave = () => {
-    const trimmedName = name.trim();
-    if (trimmedName) setUserName(trimmedName, user?.id);
-    const finalPlatforms = selectedPlatforms.length > 0 ? selectedPlatforms : ["기타"];
-    setPlatforms(finalPlatforms, user?.id);
+  const saveProfile = async (overrideName?: string, overridePlatforms?: string[]) => {
+    const finalName = overrideName ?? name.trim() || userName;
+    const finalPlatforms = overridePlatforms ?? (selectedPlatforms.length > 0 ? selectedPlatforms : ["기타"]);
+    setUserName(finalName);
+    setPlatforms(finalPlatforms);
+    if (user?.id) {
+      await profilesApi.upsert({
+        id: user.id,
+        user_name: finalName,
+        platforms: finalPlatforms,
+        whip_level: whipLevel,
+        notification_enabled: notificationEnabled,
+        notification_time: notificationTime,
+        input_mode: inputMode,
+      });
+    }
+  };
+
+  const handleSave = async () => {
+    await saveProfile();
     router.replace("/(tabs)");
   };
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
+    await saveProfile(userName, platforms);
     router.replace("/(tabs)");
   };
 
@@ -160,10 +180,10 @@ export default function ProfileScreen() {
             justifyContent: "center",
           }}
           accessibilityRole="button"
-          accessibilityLabel="Linky 시작하기"
+          accessibilityLabel="PokingNote 시작하기"
         >
           <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "700" }}>
-            Linky 시작하기
+            PokingNote 시작하기
           </Text>
         </TouchableOpacity>
 

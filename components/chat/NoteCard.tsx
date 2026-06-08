@@ -47,6 +47,9 @@ export const NoteCard: React.FC<Props> = ({ note, folderName = "초안", onPress
     onDelete?.();
   };
 
+  const displayTitle = note.title.trim() || note.rawContent.trim();
+  const hasSubContent = note.title.trim().length > 0 && note.rawContent.trim().length > 0;
+
   const card = (
     <TouchableOpacity
       onPress={onPress}
@@ -68,10 +71,10 @@ export const NoteCard: React.FC<Props> = ({ note, folderName = "초안", onPress
           style={{ fontSize: 16, fontWeight: "600", color: colors.text, letterSpacing: -0.3 }}
           numberOfLines={2}
         >
-          {note.title}
+          {displayTitle}
         </Text>
 
-        {note.rawContent.trim().length > 0 && (
+        {hasSubContent && (
           <Text
             style={{ fontSize: 13, color: colors.textTertiary, lineHeight: 20 }}
             numberOfLines={4}
