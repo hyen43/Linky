@@ -48,8 +48,7 @@
         {
           "iosDisplayInForeground": true
         }
-      ],
-      "./plugins/withIosOnlySettings"
+      ]
     ],
     "extra": {
       "router": {},
